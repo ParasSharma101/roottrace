@@ -27,7 +27,6 @@ class AiInvestigationServiceIntegrationTest {
     @Autowired private DeploymentRepository deploymentRepository;
     @Autowired private GitHubPRRepository gitHubPRRepository;
     @Autowired private LogEventRepository logEventRepository;
-    @Autowired private HypothesisRepository hypothesisRepository;
 
     @Test
     @DisplayName("Scenario A: Bad DB Migration - Should correlate Flyway PR and HikariPool exhaustion logs into grounded hypothesis")

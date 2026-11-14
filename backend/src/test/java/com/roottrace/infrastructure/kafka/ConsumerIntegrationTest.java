@@ -26,7 +26,6 @@ class ConsumerIntegrationTest {
 
     @Autowired private EventPublisher eventPublisher;
     @Autowired private LogEventRepository logEventRepository;
-    @Autowired private IncidentRepository incidentRepository;
     @Autowired private AlertRepository alertRepository;
     @Autowired private ObjectMapper objectMapper;
 

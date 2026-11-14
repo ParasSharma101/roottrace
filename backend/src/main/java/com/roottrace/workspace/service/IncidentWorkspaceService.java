@@ -1,7 +1,5 @@
 package com.roottrace.workspace.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roottrace.domain.exception.ResourceNotFoundException;
 import com.roottrace.domain.model.*;
 import com.roottrace.domain.repository.*;
@@ -14,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -32,7 +29,6 @@ public class IncidentWorkspaceService {
     private final LogEventRepository logEventRepository;
     private final HypothesisRepository hypothesisRepository;
     private final IncidentNoteRepository incidentNoteRepository;
-    private final ObjectMapper objectMapper;
 
     public IncidentWorkspaceService(
             IncidentRepository incidentRepository,
@@ -41,8 +37,7 @@ public class IncidentWorkspaceService {
             GitHubPRRepository gitHubPRRepository,
             LogEventRepository logEventRepository,
             HypothesisRepository hypothesisRepository,
-            IncidentNoteRepository incidentNoteRepository,
-            ObjectMapper objectMapper
+            IncidentNoteRepository incidentNoteRepository
     ) {
         this.incidentRepository = incidentRepository;
         this.alertRepository = alertRepository;
@@ -51,7 +46,6 @@ public class IncidentWorkspaceService {
         this.logEventRepository = logEventRepository;
         this.hypothesisRepository = hypothesisRepository;
         this.incidentNoteRepository = incidentNoteRepository;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional(readOnly = true)

@@ -8,7 +8,6 @@ import com.roottrace.ai.dto.AiInvestigationResult;
 import com.roottrace.ai.prompt.SrePromptBuilder;
 import com.roottrace.ai.validator.GroundingValidator;
 import com.roottrace.correlation.model.CompressedLogSignature;
-import com.roottrace.correlation.model.DeploymentSummary;
 import com.roottrace.correlation.model.IncidentContextBundle;
 import com.roottrace.correlation.model.PRSummary;
 import org.slf4j.Logger;

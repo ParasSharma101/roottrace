@@ -20,3 +20,6 @@ Thumbs.db
 
 # Docker Volumes local mount (if any)
 .data/
+
+# Local internal documentation
+docs/

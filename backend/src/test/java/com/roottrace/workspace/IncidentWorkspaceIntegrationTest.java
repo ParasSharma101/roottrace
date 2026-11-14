@@ -84,7 +84,7 @@ class IncidentWorkspaceIntegrationTest {
         String testService = "auth-service-" + UUID.randomUUID();
         Incident inc = incidentRepository.save(new Incident("[Alert] " + testService + ": AuthFailuresHigh", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
 
-        Alert alert = alertRepository.save(new Alert(inc, "Datadog", "AuthFailuresHigh", testService, "{\"threshold\": 50}", Instant.now()));
+        alertRepository.save(new Alert(inc, "Datadog", "AuthFailuresHigh", testService, "{\"threshold\": 50}", Instant.now()));
 
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(
                 inc,
@@ -94,7 +94,7 @@ class IncidentWorkspaceIntegrationTest {
                 "[{\"type\":\"LOG\",\"referenceId\":\"log-1\"}]"
         ));
 
-        IncidentNote note = incidentNoteRepository.save(new IncidentNote(
+        incidentNoteRepository.save(new IncidentNote(
                 inc,
                 hyp,
                 "alice@company.com",
@@ -145,7 +145,7 @@ class IncidentWorkspaceIntegrationTest {
         ));
 
         // 3. Alert (T)
-        Alert alert = alertRepository.save(new Alert(
+        alertRepository.save(new Alert(
                 inc,
                 "Datadog",
                 "DatabaseTimeout",
@@ -275,7 +275,7 @@ class IncidentWorkspaceIntegrationTest {
 
         alertRepository.save(new Alert(inc, "Prometheus", "ElasticsearchClusterDegraded", testService, "{}", Instant.now()));
 
-        Hypothesis hyp = hypothesisRepository.save(new Hypothesis(
+        hypothesisRepository.save(new Hypothesis(
                 inc,
                 "Unbounded index query causing JVM heap exhaustion",
                 new BigDecimal("0.96"),
