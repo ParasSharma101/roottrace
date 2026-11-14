@@ -1,0 +1,22 @@
+# Environment and Secrets
+.env
+*.env.local
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build Artifacts
+**/target/
+**/build/
+**/dist/
+**/.next/
+**/node_modules/
+*.log
+
+# Docker Volumes local mount (if any)
+.data/
