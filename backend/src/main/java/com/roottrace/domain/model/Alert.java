@@ -40,6 +40,11 @@ public class Alert {
     public Alert() {}
 
     public Alert(String source, String alertType, String serviceName, String rawPayload, Instant triggeredAt) {
+        this(null, source, alertType, serviceName, rawPayload, triggeredAt);
+    }
+
+    public Alert(Incident incident, String source, String alertType, String serviceName, String rawPayload, Instant triggeredAt) {
+        this.incident = incident;
         this.source = source;
         this.alertType = alertType;
         this.serviceName = serviceName;
