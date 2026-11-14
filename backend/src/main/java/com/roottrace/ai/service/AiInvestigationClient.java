@@ -49,13 +49,15 @@ public class AiInvestigationClient {
     public AiInvestigationResult investigate(IncidentContextBundle bundle) {
         if (geminiApiKey != null && !geminiApiKey.isBlank()) {
             try {
+                log.info("Calling Google Gemini API model [{}] for incident [{}]", geminiModel, bundle.incidentId());
                 return callGeminiApi(bundle);
             } catch (Exception ex) {
-                log.warn("Gemini API call failed (error: {}). Falling back to heuristic SRE engine.", ex.getMessage());
+                log.warn("Gemini API call failed (error: {}). Falling back to heuristic SRE engine.", ex.getMessage(), ex);
             }
+        } else {
+            log.info("GEMINI_API_KEY is not set. Using deterministic SRE heuristic engine for incident [{}]", bundle.incidentId());
         }
 
-        log.info("Using deterministic SRE heuristic engine for incident [{}]", bundle.incidentId());
         AiInvestigationResult heuristicResult = generateHeuristicInvestigation(bundle);
         return groundingValidator.validateAndSanitize(heuristicResult, bundle);
     }

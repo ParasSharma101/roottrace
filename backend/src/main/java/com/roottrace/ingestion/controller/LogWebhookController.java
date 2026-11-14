@@ -15,6 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/webhooks/logs")
+@CrossOrigin(origins = "*")
 public class LogWebhookController {
 
     private final EventPublisher eventPublisher;

@@ -16,6 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/webhooks/alerts")
+@CrossOrigin(origins = "*")
 public class AlertWebhookController {
 
     private final EventPublisher eventPublisher;
