@@ -129,7 +129,7 @@ class GitHubAndRedisContextIntegrationTest {
 
         while (System.currentTimeMillis() < deadline) {
             var incidents = incidentRepository.findActiveIncidentsForService(
-                    List.of(IncidentStatus.OPEN),
+                    List.of(IncidentStatus.OPEN, IncidentStatus.INVESTIGATING),
                     serviceName,
                     now.minusSeconds(60)
             );

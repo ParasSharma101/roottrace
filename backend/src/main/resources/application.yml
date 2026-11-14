@@ -56,6 +56,10 @@ spring:
 github:
   token: ${GITHUB_TOKEN:}
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: ${GEMINI_MODEL:gemini-1.5-flash}
+
 management:
   endpoints:
     web:

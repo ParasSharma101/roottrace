@@ -1,5 +1,6 @@
 package com.roottrace.correlation.listener;
 
+import com.roottrace.ai.service.AiInvestigationService;
 import com.roottrace.correlation.model.IncidentContextBundle;
 import com.roottrace.correlation.service.CorrelationService;
 import com.roottrace.correlation.service.IncidentContextCacheService;
@@ -7,7 +8,6 @@ import com.roottrace.domain.event.IncidentCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,11 +17,14 @@ public class IncidentEventListener {
 
     private final CorrelationService correlationService;
     private final IncidentContextCacheService incidentContextCacheService;
+    private final AiInvestigationService aiInvestigationService;
 
     public IncidentEventListener(CorrelationService correlationService,
-                                 IncidentContextCacheService incidentContextCacheService) {
+                                 IncidentContextCacheService incidentContextCacheService,
+                                 AiInvestigationService aiInvestigationService) {
         this.correlationService = correlationService;
         this.incidentContextCacheService = incidentContextCacheService;
+        this.aiInvestigationService = aiInvestigationService;
     }
 
     @EventListener
@@ -31,8 +34,12 @@ public class IncidentEventListener {
             IncidentContextBundle bundle = correlationService.buildContextBundle(event.incidentId());
             incidentContextCacheService.cacheContextBundle(bundle);
             log.info("Successfully correlated and cached context bundle in Redis for incident [{}]", event.incidentId());
+
+            // Autonomous investigation trigger
+            aiInvestigationService.investigateIncident(event.incidentId());
+            log.info("Completed AI investigation for incident [{}]", event.incidentId());
         } catch (Exception ex) {
-            log.error("Failed to build/cache context bundle for incident [{}]: {}", event.incidentId(), ex.getMessage(), ex);
+            log.error("Failed to process incident investigation for incident [{}]: {}", event.incidentId(), ex.getMessage(), ex);
         }
     }
 }
