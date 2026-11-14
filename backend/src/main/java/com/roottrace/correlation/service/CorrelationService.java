@@ -65,7 +65,12 @@ public class CorrelationService {
 
         List<Alert> alerts = alertRepository.findByIncidentIdOrderByTriggeredAtDesc(incidentId);
 
-        String serviceName = alerts.isEmpty() ? "unknown-service" : alerts.get(0).getServiceName();
+        String serviceName;
+        if (!alerts.isEmpty()) {
+            serviceName = alerts.get(0).getServiceName();
+        } else {
+            serviceName = extractServiceNameFromTitle(incident.getTitle());
+        }
 
         Instant alertTime = incident.getStartTime();
         Instant windowStart = alertTime.minus(WINDOW_BEFORE_MINUTES, ChronoUnit.MINUTES);
@@ -145,5 +150,16 @@ public class CorrelationService {
     public String buildContextBundleAsJson(UUID incidentId) throws JsonProcessingException {
         IncidentContextBundle bundle = buildContextBundle(incidentId);
         return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(bundle);
+    }
+
+    private String extractServiceNameFromTitle(String title) {
+        if (title != null && title.startsWith("[Alert] ") && title.contains(":")) {
+            int start = "[Alert] ".length();
+            int end = title.indexOf(":", start);
+            if (end > start) {
+                return title.substring(start, end).trim();
+            }
+        }
+        return "unknown-service";
     }
 }

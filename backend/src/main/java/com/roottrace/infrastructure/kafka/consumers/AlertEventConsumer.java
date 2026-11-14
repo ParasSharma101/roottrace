@@ -32,15 +32,18 @@ public class AlertEventConsumer {
     private final AlertRepository alertRepository;
     private final EventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
+    private final org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
 
     public AlertEventConsumer(IncidentRepository incidentRepository,
                               AlertRepository alertRepository,
                               EventPublisher eventPublisher,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              org.springframework.context.ApplicationEventPublisher applicationEventPublisher) {
         this.incidentRepository = incidentRepository;
         this.alertRepository = alertRepository;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @KafkaListener(
@@ -93,8 +96,16 @@ public class AlertEventConsumer {
             Alert alert = new Alert(source, alertType, serviceName, rawPayloadJson, triggeredAt);
             alert.setIncident(incident);
             alertRepository.save(alert);
-
             log.info("Successfully persisted alert [{}] linked to incident [{}]", alert.getId(), incident.getId());
+
+            // 3. Publish IncidentCreatedEvent only after both Incident and Alert are safely persisted
+            if (activeIncidents.isEmpty()) {
+                applicationEventPublisher.publishEvent(new com.roottrace.domain.event.IncidentCreatedEvent(
+                        incident.getId(),
+                        serviceName,
+                        triggeredAt
+                ));
+            }
 
         } catch (Exception ex) {
             log.error("Failed to process alert record at partition {} offset {}. Routing to DLQ: {}",

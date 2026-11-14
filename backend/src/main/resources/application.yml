@@ -53,6 +53,9 @@ spring:
       port: ${REDIS_PORT:6379}
       timeout: 2000ms
 
+github:
+  token: ${GITHUB_TOKEN:}
+
 management:
   endpoints:
     web:
