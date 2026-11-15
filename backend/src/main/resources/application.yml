@@ -60,6 +60,16 @@ gemini:
   api-key: ${GEMINI_API_KEY:}
   model: ${GEMINI_MODEL:gemini-1.5-flash}
 
+roottrace:
+  security:
+    jwt:
+      secret: ${ROOTTRACE_JWT_SECRET:roottrace-super-secret-jwt-signing-key-minimum-256-bits-for-hs256-security!}
+      expiration-ms: ${ROOTTRACE_JWT_EXPIRATION_MS:86400000}
+    ingestion:
+      api-key: ${ROOTTRACE_INGESTION_KEY:roottrace_dev_secret_key}
+    break-glass:
+      token: ${ROOTTRACE_BREAKGLASS_TOKEN:roottrace_emergency_breakglass_token}
+
 management:
   endpoints:
     web:

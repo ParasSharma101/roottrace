@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -51,9 +52,11 @@ public class IncidentController {
     public ResponseEntity<HypothesisDetailDto> verifyHypothesis(
             @PathVariable UUID id,
             @PathVariable UUID hypothesisId,
-            @RequestBody(required = false) VerifyHypothesisRequest request
+            @RequestBody(required = false) VerifyHypothesisRequest request,
+            Authentication authentication
     ) {
-        String author = request != null && request.author() != null ? request.author() : "On-Call Engineer";
+        String fallback = request != null ? request.author() : null;
+        String author = resolveAuthor(authentication, fallback);
         HypothesisDetailDto result = workspaceService.verifyHypothesis(id, hypothesisId, author);
         return ResponseEntity.ok(result);
     }
@@ -62,19 +65,34 @@ public class IncidentController {
     public ResponseEntity<HypothesisDetailDto> rejectHypothesis(
             @PathVariable UUID id,
             @PathVariable UUID hypothesisId,
-            @Valid @RequestBody RejectHypothesisRequest request
+            @Valid @RequestBody RejectHypothesisRequest request,
+            Authentication authentication
     ) {
-        HypothesisDetailDto result = workspaceService.rejectHypothesis(id, hypothesisId, request.author(), request.reason());
+        String author = resolveAuthor(authentication, request.author());
+        HypothesisDetailDto result = workspaceService.rejectHypothesis(id, hypothesisId, author, request.reason());
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/{id}/notes")
     public ResponseEntity<IncidentNoteDetailDto> addNote(
             @PathVariable UUID id,
-            @Valid @RequestBody AddNoteRequest request
+            @Valid @RequestBody AddNoteRequest request,
+            Authentication authentication
     ) {
-        IncidentNoteDetailDto result = workspaceService.addNote(id, request);
+        String author = resolveAuthor(authentication, request.author());
+        AddNoteRequest effectiveRequest = new AddNoteRequest(author, request.note(), request.hypothesisId());
+        IncidentNoteDetailDto result = workspaceService.addNote(id, effectiveRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    private String resolveAuthor(Authentication authentication, String fallback) {
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
+            return authentication.getName();
+        }
+        return "On-Call Engineer";
     }
 
     @PatchMapping("/{id}/status")
