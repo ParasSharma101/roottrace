@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = "roottrace.demo.enabled=true")
+@SpringBootTest(properties = {"roottrace.demo.enabled=true", "roottrace.security.break-glass.enabled=true"})
 @ActiveProfiles("dev")
 @AutoConfigureMockMvc
 @Transactional

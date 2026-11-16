@@ -65,12 +65,13 @@ roottrace:
     enabled: ${ROOTTRACE_DEMO_ENABLED:false}
   security:
     jwt:
-      secret: ${ROOTTRACE_JWT_SECRET:roottrace-super-secret-jwt-signing-key-minimum-256-bits-for-hs256-security!}
+      secret: ${ROOTTRACE_JWT_SECRET:}
       expiration-ms: ${ROOTTRACE_JWT_EXPIRATION_MS:86400000}
     ingestion:
-      api-key: ${ROOTTRACE_INGESTION_KEY:roottrace_dev_secret_key}
+      api-key: ${ROOTTRACE_INGESTION_KEY:}
     break-glass:
-      token: ${ROOTTRACE_BREAKGLASS_TOKEN:roottrace_emergency_breakglass_token}
+      enabled: ${ROOTTRACE_BREAKGLASS_ENABLED:false}
+      token: ${ROOTTRACE_BREAKGLASS_TOKEN:}
 
 management:
   endpoints:

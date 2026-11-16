@@ -131,7 +131,7 @@ GITHUB_TOKEN=your_optional_github_token
 ### 3. Run Backend Application
 ```bash
 cd backend
-./mvnw clean spring-boot:run
+./mvnw -Dspring-boot.run.profiles=dev clean spring-boot:run
 ```
 Backend will start on `http://localhost:8080`.
 
@@ -146,6 +146,8 @@ Frontend will be available at `http://localhost:3000`.
 ---
 
 ## Production Docker Deployment
+
+Supply independent `ROOTTRACE_JWT_SECRET`, `ROOTTRACE_INGESTION_KEY`, and `POSTGRES_PASSWORD` values before deployment. Signing and ingestion secrets must be non-default values of at least 32 UTF-8 bytes. Missing or invalid security configuration prevents startup. Break-glass access is disabled in production. See [backend/SECURITY.md](backend/SECURITY.md) for configuration, rotation, and remaining deployment limitations.
 
 To launch the full 5-tier production environment (Postgres + Redis + Kafka + Spring Boot + Next.js):
 ```bash

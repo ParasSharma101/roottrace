@@ -6,7 +6,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -22,12 +21,9 @@ public class JwtTokenProvider {
     private final SecretKey secretKey;
     private final long expirationMs;
 
-    public JwtTokenProvider(
-            @Value("${roottrace.security.jwt.secret:roottrace-super-secret-jwt-signing-key-minimum-256-bits-for-hs256-security!}") String secret,
-            @Value("${roottrace.security.jwt.expiration-ms:86400000}") long expirationMs
-    ) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationMs = expirationMs;
+    public JwtTokenProvider(SecuritySettings settings) {
+        this.secretKey = Keys.hmacShaKeyFor(settings.getJwtSecret().getBytes(StandardCharsets.UTF_8));
+        this.expirationMs = settings.getJwtExpirationMs();
     }
 
     public String generateToken(String email, String name, List<String> roles) {

@@ -38,8 +38,13 @@ When adding a Spring integration test, extend `IntegrationTestSupport`. Do not a
 
 # Docker required: startup, fresh migrations, and provider credential overrides
 .\mvnw.cmd -B -Dtest=RootTraceApplicationTests test
+
+# No Docker required: security configuration and request-filter boundaries
+.\mvnw.cmd -B '-Dtest=SecuritySettingsTest,CredentialFilterTest' test
 ```
 
 Results are written to `target/surefire-reports`. A successful build does not prove production readiness, tenant isolation, or deployed integration behavior.
+
+Integration fixtures use independent signing/ingestion keys rather than known development defaults. Emergency-access success is tested only with explicit development opt-in; production regression checks verify that matching emergency headers cannot authenticate or upgrade a viewer's role. Startup-validation unit tests use isolated Spring contexts and no database.
 
 Testcontainers 2.0.5 is pinned for the current Docker daemon. Commons Lang and Commons IO are pinned in test scope to satisfy its Commons Compress dependency without changing application source or adding runtime dependencies.

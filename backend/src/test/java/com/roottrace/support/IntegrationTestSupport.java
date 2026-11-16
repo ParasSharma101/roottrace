@@ -44,7 +44,7 @@ public abstract class IntegrationTestSupport {
         registry.add("gemini.api-key", () -> "");
         registry.add("roottrace.security.jwt.secret", () ->
                 "test-only-jwt-signing-secret-at-least-256-bits-long");
-        registry.add("roottrace.security.ingestion.api-key", () -> "roottrace_dev_secret_key");
+        registry.add("roottrace.security.ingestion.api-key", () -> "test-only-ingestion-key-at-least-32-bytes-long");
         registry.add("roottrace.security.break-glass.token", () -> "roottrace_emergency_breakglass_token");
     }
 }
