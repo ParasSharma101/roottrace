@@ -27,6 +27,8 @@ class ConsumerIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Autowired private EventPublisher eventPublisher;
     @Autowired private LogEventRepository logEventRepository;
     @Autowired private AlertRepository alertRepository;
+    @Autowired private IncidentRepository incidentRepository;
+    @Autowired private com.roottrace.domain.repository.WorkspaceRepository workspaceRepository;
     @Autowired private ObjectMapper objectMapper;
 
     @Test
@@ -71,6 +73,16 @@ class ConsumerIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     void testAlertStormDeduplication() throws Exception {
         String serviceName = "billing-gateway-" + UUID.randomUUID();
         Instant now = Instant.now();
+
+        // A tenant incident with an identical service must not receive unscoped alerts.
+        String unique = UUID.randomUUID().toString();
+        var tenant = workspaceRepository.saveAndFlush(new com.roottrace.domain.model.Workspace("Tenant", unique, "fixture-" + unique));
+        Incident foreign = new Incident("[Alert] " + serviceName + ": Existing", com.roottrace.domain.model.SeverityLevel.SEV1,
+                com.roottrace.domain.model.IncidentStatus.OPEN);
+        foreign.setWorkspace(tenant);
+        foreign = incidentRepository.saveAndFlush(foreign);
+        // The old alert is outside the assertion window but still qualifies for deduplication.
+        alertRepository.saveAndFlush(new Alert(foreign, "Test", "Existing", serviceName, "{}", now.minusSeconds(180)));
 
         // 1. Publish first alert: LatencySpike
         Map<String, Object> alert1 = Map.of(
@@ -121,5 +133,8 @@ class ConsumerIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
         assertThat(incidentAlert1.getId())
                 .as("Alert storm deduplication must attach both alerts to the same Incident record")
                 .isEqualTo(incidentAlert2.getId());
+        assertThat(incidentAlert1.getId()).isNotEqualTo(foreign.getId());
+        assertThat(incidentRepository.findById(incidentAlert1.getId()).orElseThrow().getWorkspace().getId())
+                .isEqualTo(com.roottrace.security.AuthDataSeeder.DEFAULT_WORKSPACE_ID);
     }
 }

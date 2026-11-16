@@ -49,6 +49,8 @@ V3 marks the existing V2 default workspace (`00000000-0000-0000-0000-00000000000
 
 The workspace access policy excludes legacy memberships from listing and selection outside explicit `dev & !prod`, and rejects pre-existing selected legacy tokens. Creating a new workspace never sets the legacy flag. Development demos retain access to their existing legacy container. Even a development emergency header cannot bypass the selected-workspace identity required by incident APIs.
 
+The interim alert consumer explicitly quarantines new unscoped alerts in that same legacy container. Its deduplication query is workspace-scoped, so an active incident with the same service name in an application tenant cannot absorb those alerts. This preserves development simulations. Payload workspace fields are not trusted or used to assign ownership; real workspace-owned ingestion is still pending.
+
 Every incident API supplies workspace ID explicitly to IncidentWorkspaceService. Lists use a workspace predicate; detail, timeline, status, notes, hypotheses, and both postmortem representations verify the owning incident first. Foreign/unknown object IDs return 404 before child content is assembled or modified. Hypothesis references must belong to the same incident, including note links. Audit authors come from the authenticated identity; request author fields are optional compatibility fields and are ignored. Status-change audit notes also record the authenticated author.
 
 Logs and deployments still lack tenant ownership. Until the ingestion/correlation migration supplies it, normal workspace timelines and postmortem timeline sections exclude those unscoped records and PRs reached through deployments. Explicitly accessible legacy development demos can still display them. This restriction deliberately avoids presenting globally matched telemetry as tenant-owned evidence. Incident-linked alerts, hypotheses, and notes remain available after the owner check; pre-existing AI text/citations and all background investigation paths still require the following pipeline work.
@@ -57,7 +59,7 @@ The V2-to-V3 migration test uses an independent schema in a disposable PostgreSQ
 
 ## Explicit remaining limitations
 
-Incident APIs now enforce selected ownership, and the migration-created default workspace is excluded from normal sessions. Independently stored telemetry, ingestion, alert deduplication, background correlation/AI, and caches still lack complete tenant scoping. Their existing behavior can still affect investigation data and must be fixed before public multi-tenant use. Logs/deployments have not been assigned to a preservation workspace yet. Invitations still immediately add existing users; acceptance, role management, session revocation, and workspace key lifecycle remain separate work.
+Incident APIs now enforce selected ownership, and the migration-created default workspace is excluded from normal sessions. Unscoped alerts are quarantined and their deduplication is restricted to legacy incidents. Independently stored telemetry, workspace-owned ingestion, background correlation/AI, and caches still lack complete tenant scoping and must be fixed before public multi-tenant use. Logs/deployments have not been assigned to a preservation workspace yet. Invitations still immediately add existing users; acceptance, role management, session revocation, and workspace key lifecycle remain separate work.
 
 ## Verification boundary
 

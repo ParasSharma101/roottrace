@@ -20,11 +20,13 @@ public interface IncidentRepository extends JpaRepository<Incident, UUID> {
         SELECT DISTINCT i FROM Incident i 
         JOIN Alert a ON a.incident = i 
         WHERE i.status IN :statuses 
+          AND i.workspace.id = :workspaceId
           AND a.serviceName = :serviceName 
           AND i.startTime >= :since 
         ORDER BY i.startTime DESC
     """)
     List<Incident> findActiveIncidentsForService(
+        @Param("workspaceId") UUID workspaceId,
         @Param("statuses") List<IncidentStatus> statuses,
         @Param("serviceName") String serviceName,
         @Param("since") Instant since
