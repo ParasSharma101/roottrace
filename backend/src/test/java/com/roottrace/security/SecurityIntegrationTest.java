@@ -1,17 +1,14 @@
 package com.roottrace.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.roottrace.domain.model.Hypothesis;
-import com.roottrace.domain.model.HypothesisStatus;
-import com.roottrace.domain.model.Incident;
-import com.roottrace.domain.model.IncidentNote;
-import com.roottrace.domain.model.IncidentStatus;
-import com.roottrace.domain.model.SeverityLevel;
+import com.roottrace.domain.model.*;
 import com.roottrace.domain.repository.HypothesisRepository;
 import com.roottrace.domain.repository.IncidentNoteRepository;
 import com.roottrace.domain.repository.IncidentRepository;
 import com.roottrace.security.dto.DemoLoginRequest;
+import com.roottrace.security.dto.InviteMemberRequest;
 import com.roottrace.security.dto.LoginRequest;
+import com.roottrace.security.dto.SignupRequest;
 import com.roottrace.workspace.dto.VerifyHypothesisRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -52,6 +50,29 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/auth/signup - should register new SaaS user, workspace and return JWT")
+    void testSaaSSignup() throws Exception {
+        String testEmail = "founder-" + UUID.randomUUID() + "@company.com";
+        SignupRequest signupReq = new SignupRequest(
+                "Alex Founder",
+                testEmail,
+                "securePass123",
+                "Acme Payments Prod"
+        );
+
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(signupReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.email").value(testEmail))
+                .andExpect(jsonPath("$.fullName").value("Alex Founder"))
+                .andExpect(jsonPath("$.roles[0]").value("ROLE_ADMIN"))
+                .andExpect(jsonPath("$.workspaceName").value("Acme Payments Prod"))
+                .andExpect(jsonPath("$.apiKey").value(org.hamcrest.Matchers.startsWith("rt_live_")));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/auth/demo-login - should mint valid JWT for SRE, VIEWER, and ADMIN")
     void testDemoLogin() throws Exception {
         DemoLoginRequest req = new DemoLoginRequest("SRE");
@@ -66,31 +87,58 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/login - should authenticate and return JWT token")
+    @DisplayName("POST /api/v1/auth/login - should authenticate with BCrypt and return JWT token")
     void testStandardLogin() throws Exception {
-        LoginRequest req = new LoginRequest("sre.lead@company.com", "any-password");
+        // Alice is seeded with password123
+        LoginRequest req = new LoginRequest("alice.sre@roottrace.io", "password123");
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
-                .andExpect(jsonPath("$.email").value("sre.lead@company.com"))
+                .andExpect(jsonPath("$.email").value("alice.sre@roottrace.io"))
                 .andExpect(jsonPath("$.roles").isArray());
     }
 
     @Test
-    @DisplayName("GET /api/v1/auth/me - should return authenticated profile from JWT")
+    @DisplayName("POST /api/v1/auth/login - should reject invalid credentials with 401")
+    void testLoginInvalidCredentials() throws Exception {
+        LoginRequest req = new LoginRequest("alice.sre@roottrace.io", "wrongpassword");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/me - should return authenticated profile and workspace from JWT")
     void testGetMe() throws Exception {
-        String token = jwtTokenProvider.generateToken("alice@roottrace.io", "Alice", List.of("ROLE_SRE"));
+        String token = jwtTokenProvider.generateToken("alice.sre@roottrace.io", "Alice", List.of("ROLE_SRE"));
 
         mockMvc.perform(get("/api/v1/auth/me")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("alice@roottrace.io"))
-                .andExpect(jsonPath("$.name").value("alice"))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_SRE"))
+                .andExpect(jsonPath("$.email").value("alice.sre@roottrace.io"))
+                .andExpect(jsonPath("$.fullName").isNotEmpty())
                 .andExpect(jsonPath("$.breakGlass").value(false));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/workspace/invites - ADMIN can invite team members to workspace")
+    void testWorkspaceInvite() throws Exception {
+        String adminToken = jwtTokenProvider.generateToken("bob.admin@roottrace.io", "Bob", List.of("ROLE_ADMIN"));
+        InviteMemberRequest inviteReq = new InviteMemberRequest("newdev@roottrace.io", "ROLE_SRE");
+
+        mockMvc.perform(post("/api/v1/workspace/invites")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(inviteReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value("newdev@roottrace.io"))
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.token").isNotEmpty());
     }
 
     @Test

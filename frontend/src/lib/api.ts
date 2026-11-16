@@ -132,3 +132,34 @@ export async function triggerScenarioB(): Promise<any> {
     method: 'POST',
   });
 }
+
+// =========================================================================
+// SaaS Workspace & Team Management APIs
+// =========================================================================
+
+export interface TeamMember {
+  userId: string;
+  fullName: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+}
+
+export interface WorkspaceDetails {
+  id: string;
+  name: string;
+  slug: string;
+  apiKey: string;
+  members: TeamMember[];
+}
+
+export async function getWorkspaceDetails(): Promise<WorkspaceDetails> {
+  return fetchJson<WorkspaceDetails>(`${API_BASE}/workspace`);
+}
+
+export async function inviteWorkspaceMember(email: string, role: string): Promise<any> {
+  return fetchJson(`${API_BASE}/workspace/invites`, {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  });
+}
