@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 @WithMockUser(username = "alice@roottrace.io", roles = {"SRE", "VIEWER"})
-class IncidentWorkspaceIntegrationTest {
+class IncidentWorkspaceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;

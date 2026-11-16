@@ -25,7 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class GitHubAndRedisContextIntegrationTest {
+class GitHubAndRedisContextIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private GitHubService gitHubService;
     @Autowired private IncidentContextCacheService incidentContextCacheService;

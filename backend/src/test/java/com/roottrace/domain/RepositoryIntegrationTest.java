@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-class RepositoryIntegrationTest {
+class RepositoryIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private AlertRepository alertRepository;

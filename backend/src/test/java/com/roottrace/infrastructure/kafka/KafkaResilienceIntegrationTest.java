@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class KafkaResilienceIntegrationTest {
+class KafkaResilienceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private KafkaAdmin kafkaAdmin;
     @Autowired private EventPublisher eventPublisher;
@@ -71,7 +71,8 @@ class KafkaResilienceIntegrationTest {
 
         // Verify message received by consumer
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                kafkaAdmin.getConfigurationProperties().get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-verification-group-" + UUID.randomUUID());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());

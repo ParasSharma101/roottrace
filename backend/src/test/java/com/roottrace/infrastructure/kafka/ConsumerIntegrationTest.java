@@ -22,7 +22,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class ConsumerIntegrationTest {
+class ConsumerIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private EventPublisher eventPublisher;
     @Autowired private LogEventRepository logEventRepository;

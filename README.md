@@ -160,19 +160,18 @@ Access the application:
 
 ## Running the Automated Test Suite
 
-RootTrace includes 23 automated integration and unit tests covering all system stages:
+Backend integration tests use disposable PostgreSQL, Redis, and Kafka containers. Install JDK 21, set `JAVA_HOME`, and start Docker before running them. The development Compose stack is not required, and test provider credentials are overridden to avoid live Gemini/GitHub requests.
+
 ```bash
 cd backend
-./mvnw test
+./mvnw -B test
 ```
-Test suite coverage:
-- `WebhookIngestionIntegrationTest`: Log & Alert REST ingestion, micro-batching, and Kafka dispatch (4 tests).
-- `LogFingerprinterTest`: Stack trace clustering, timestamp normalization, and deduplication (4 tests).
-- `GroundingValidatorTest`: AI citation verification and hallucination penalization (3 tests).
-- `GitHubAndRedisContextIntegrationTest`: Redis context caching and time-window correlation (3 tests).
-- `AiInvestigationServiceIntegrationTest`: End-to-end AI investigation workflows for Scenario A & B (2 tests).
-- `IncidentWorkspaceIntegrationTest`: REST APIs, timeline aggregation, verification, and postmortem generation (6 tests).
-- `RootTraceApplicationTests`: Context bootstrapper (1 test).
+
+On Windows PowerShell, use `.\mvnw.cmd -B test` from `backend`.
+
+The suite covers repository persistence, webhook validation and authorization, Kafka publishing/consumption, alert deduplication, correlation and log compression, Redis caching, heuristic AI investigation, citation grounding, account/workspace APIs, and incident review/postmortem workflows.
+
+See [backend/TESTING.md](backend/TESTING.md) for lifecycle, isolation boundaries, and focused test commands.
 
 ---
 

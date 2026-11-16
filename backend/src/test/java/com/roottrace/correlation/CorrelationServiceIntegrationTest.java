@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-class CorrelationServiceIntegrationTest {
+class CorrelationServiceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private CorrelationService correlationService;
     @Autowired private IncidentRepository incidentRepository;

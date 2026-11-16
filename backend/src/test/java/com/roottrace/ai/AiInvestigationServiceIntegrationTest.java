@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-class AiInvestigationServiceIntegrationTest {
+class AiInvestigationServiceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private AiInvestigationService aiInvestigationService;
     @Autowired private IncidentRepository incidentRepository;
