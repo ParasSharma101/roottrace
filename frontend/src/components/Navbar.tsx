@@ -19,7 +19,8 @@ import {
   Layers
 } from 'lucide-react';
 import { triggerScenarioA, triggerScenarioB } from '@/lib/api';
-import { AuthUser, getAuthUser, loginDemoRole, clearAuthSession, ensureDefaultAuth } from '@/lib/auth';
+import { AuthUser, getAuthUser, loginDemoRole, clearAuthSession } from '@/lib/auth';
+import { isDemoEnabled } from '@/lib/demo';
 
 export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
   const [showSandboxMenu, setShowSandboxMenu] = useState(false);
 
   useEffect(() => {
-    ensureDefaultAuth().then(setUser);
+    setUser(getAuthUser());
 
     const handleAuthChange = () => {
       setUser(getAuthUser());
@@ -139,6 +140,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
           )}
 
           {/* Clean Interactive Sandbox Dropdown (Replaces prominent raw scenario buttons) */}
+          {isDemoEnabled && (
           <div className="relative">
             <button
               onClick={() => setShowSandboxMenu(!showSandboxMenu)}
@@ -180,10 +182,11 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
             )}
           </div>
 
+          )}
           {/* User Profile & Persona Switcher */}
           <div className="relative">
             <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
+              onClick={() => user ? setShowUserMenu(!showUserMenu) : router.push('/login')}
               className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-xs text-slate-200 transition-colors"
             >
               <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-500 to-indigo-700 flex items-center justify-center text-[10px] font-bold text-white uppercase">
@@ -192,7 +195,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
               <span className="font-medium text-[11px] text-slate-200 max-w-[120px] truncate">
                 {user ? user.fullName || user.email.split('@')[0] : 'Sign In'}
               </span>
-              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+              {user && <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
                 currentRole === 'ADMIN'
                   ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                   : currentRole === 'SRE'
@@ -200,7 +203,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
                   : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
               }`}>
                 {currentRole}
-              </span>
+              </span>}
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
@@ -216,6 +219,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
                 </div>
 
                 {/* Switch Persona Section */}
+                {isDemoEnabled && <>
                 <div className="px-3.5 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-1">
                   Switch Active Persona
                 </div>
@@ -251,6 +255,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
                 </button>
 
                 {/* Actions */}
+                </>}
                 <div className="mt-1 pt-1 border-t border-slate-800/80">
                   <Link
                     href="/settings"

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Activity, ArrowRight, Lock, Mail, AlertCircle, Shield, UserCheck, KeyRound } from 'lucide-react';
 import { loginWithCredentials, loginDemoRole } from '@/lib/auth';
+import { isDemoEnabled } from '@/lib/demo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -132,6 +133,7 @@ export default function LoginPage() {
           </form>
 
           {/* Quick 1-Click Evaluation Personas */}
+          {isDemoEnabled && (
           <div className="mt-6 pt-6 border-t border-slate-800/80">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-3">
               Fast Evaluation • 1-Click Demo Profiles
@@ -171,6 +173,7 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

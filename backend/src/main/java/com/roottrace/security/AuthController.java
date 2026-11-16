@@ -1,7 +1,6 @@
 package com.roottrace.security;
 
 import com.roottrace.security.dto.AuthResponse;
-import com.roottrace.security.dto.DemoLoginRequest;
 import com.roottrace.security.dto.LoginRequest;
 import com.roottrace.security.dto.SignupRequest;
 import com.roottrace.security.dto.UserProfileDto;
@@ -34,12 +33,6 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/demo-login")
-    public ResponseEntity<AuthResponse> demoLogin(@Valid @RequestBody DemoLoginRequest request) {
-        AuthResponse response = authService.demoLogin(request);
         return ResponseEntity.ok(response);
     }
 

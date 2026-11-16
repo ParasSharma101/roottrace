@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,7 +30,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "roottrace.demo.enabled=true")
+@ActiveProfiles("dev")
 @AutoConfigureMockMvc
 @Transactional
 class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
@@ -75,15 +77,15 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Test
     @DisplayName("POST /api/v1/auth/demo-login - should mint valid JWT for SRE, VIEWER, and ADMIN")
     void testDemoLogin() throws Exception {
-        DemoLoginRequest req = new DemoLoginRequest("SRE");
-
-        mockMvc.perform(post("/api/v1/auth/demo-login")
+        for (String role : List.of("SRE", "VIEWER", "ADMIN")) {
+            DemoLoginRequest req = new DemoLoginRequest(role);
+            mockMvc.perform(post("/api/v1/auth/demo-login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
-                .andExpect(jsonPath("$.email").value("alice.sre@roottrace.io"))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_SRE"));
+                .andExpect(jsonPath("$.roles[0]").value("ROLE_" + role));
+        }
     }
 
     @Test

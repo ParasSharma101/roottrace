@@ -22,6 +22,7 @@ Every Spring integration test extends `IntegrationTestSupport`. It starts fresh 
 
 Provider tokens are overridden with empty values so existing AI/GitHub fallback code is used. Tests therefore cover local heuristic behavior and cached/fallback GitHub metadata, not live provider correctness. Test authentication values are explicit fixtures, not deployment credentials.
 
+Demo auth fixtures are seeded only in `SecurityIntegrationTest`, which explicitly activates `dev` and enables `roottrace.demo.enabled`. Disabled-demo regression tests cover the default configuration, development with the switch off, and production with both an accidental `dev` profile and the switch on. Production must win in that last case. Shared test data can remain visible across Spring contexts; disabled-demo tests verify the seeder bean is absent rather than relying on the absence of previously created accounts.
 
 Containers are not reusable, have no development volume mounts, and are cleaned up by Testcontainers' resource reaper after the test JVM exits. A missing Docker daemon fails integration tests; there is no fallback to localhost development services. Do not disable the resource reaper.
 

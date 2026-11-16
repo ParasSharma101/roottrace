@@ -1,5 +1,7 @@
 'use client';
 
+import { isDemoEnabled } from './demo';
+
 export interface AuthUser {
   userId?: string;
   email: string;
@@ -114,6 +116,7 @@ export async function signupUser(fullName: string, email: string, password: stri
 }
 
 export async function loginDemoRole(role: 'SRE' | 'VIEWER' | 'ADMIN'): Promise<AuthUser> {
+  if (!isDemoEnabled) throw new Error('Demo login is disabled');
   const res = await fetch(`${getApiBase()}/auth/demo-login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -141,12 +144,4 @@ export async function loginDemoRole(role: 'SRE' | 'VIEWER' | 'ADMIN'): Promise<A
 
   setAuthSession(authUser);
   return authUser;
-}
-
-export async function ensureDefaultAuth(): Promise<AuthUser> {
-  const existing = getAuthUser();
-  if (existing && getAuthToken()) {
-    return existing;
-  }
-  return loginDemoRole('SRE');
 }

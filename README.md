@@ -200,6 +200,27 @@ See [backend/TESTING.md](backend/TESTING.md) for lifecycle, isolation boundaries
 
 ## Incident Demo Walkthrough
 
+Demo login, account seeding, and simulation endpoints are **disabled by default**. They require both the backend `dev` profile and `ROOTTRACE_DEMO_ENABLED=true`. Any active `prod` profile disables them regardless of the flag. The production Compose configuration explicitly selects `prod` and disables demos.
+
+For a local demo, set these in the backend PowerShell session before starting Spring Boot:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'dev'
+$env:ROOTTRACE_DEMO_ENABLED = 'true'
+.\mvnw.cmd spring-boot:run
+```
+
+In a separate PowerShell session in `frontend`, opt into the development UI:
+
+```powershell
+$env:NEXT_PUBLIC_DEMO_ENABLED = 'true'
+npm.cmd run dev
+```
+
+Frontend production builds always hide demo profiles, persona switching, and simulations. Visitors are no longer logged in automatically; choose a demo profile on the login page when running the local demo. The normal signup/password login flow works without demo mode.
+
+Disabling demos does not remove accounts already seeded into an existing database or revoke previously issued tokens. Existing demo accounts, default secrets, and the migration-seeded development workspace require separate cleanup before deploying existing data. Do not expose the development demo publicly.
+
 1. Open `http://localhost:3000` in your browser.
 2. Click **"Simulate Scenario A"** in the top navigation bar:
    - Injects a `ConnectionPoolExhausted` alert on `payment-service`.

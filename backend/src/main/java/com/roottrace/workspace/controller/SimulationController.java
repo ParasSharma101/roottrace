@@ -13,6 +13,8 @@ import com.roottrace.infrastructure.kafka.KafkaTopicConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -20,6 +22,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @RestController
+@Profile("dev & !prod")
+@ConditionalOnProperty(name = "roottrace.demo.enabled", havingValue = "true")
 @RequestMapping("/api/v1/simulation")
 @CrossOrigin(origins = "*")
 public class SimulationController {

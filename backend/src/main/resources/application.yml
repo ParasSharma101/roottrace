@@ -61,6 +61,8 @@ gemini:
   model: ${GEMINI_MODEL:gemini-1.5-flash}
 
 roottrace:
+  demo:
+    enabled: ${ROOTTRACE_DEMO_ENABLED:false}
   security:
     jwt:
       secret: ${ROOTTRACE_JWT_SECRET:roottrace-super-secret-jwt-signing-key-minimum-256-bits-for-hs256-security!}
