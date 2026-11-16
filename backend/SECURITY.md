@@ -29,6 +29,8 @@ Spring Boot and Next.js do not automatically load the repository-root `.env` whe
 
 `X-RootTrace-Key` is accepted only under `/api/v1/webhooks/`; it cannot authenticate workspace or other application requests. Credential comparisons use `MessageDigest.isEqual` on UTF-8 bytes. The emergency header is ignored outside explicitly enabled local development. Ordinary JWT role checks continue to apply to production requests.
 
+Workspace-session increment: roles are now resolved from current database membership rather than trusted JWT claims. Version 2 sessions identify the user and optional workspace; old-format tokens require fresh login. See [WORKSPACE_DESIGN.md](WORKSPACE_DESIGN.md). This does not yet isolate incident or telemetry queries by workspace.
+
 ## Rotation and deployment limits
 
 Replacing the signing secret invalidates tokens signed with the previous secret after all backend instances use the new key. Restart/roll out all instances together; this step does not implement multiple-key rotation or session revocation. Replace the ingestion key separately and update senders. Previously seeded demo accounts still exist and can use password login until explicitly removed or disabled. Do not migrate development credentials/accounts into production.

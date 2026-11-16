@@ -149,7 +149,7 @@ export interface WorkspaceDetails {
   id: string;
   name: string;
   slug: string;
-  apiKey: string;
+  apiKey: string | null;
   members: TeamMember[];
 }
 

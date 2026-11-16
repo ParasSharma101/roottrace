@@ -47,4 +47,18 @@ Results are written to `target/surefire-reports`. A successful build does not pr
 
 Integration fixtures use independent signing/ingestion keys rather than known development defaults. Emergency-access success is tested only with explicit development opt-in; production regression checks verify that matching emergency headers cannot authenticate or upgrade a viewer's role. Startup-validation unit tests use isolated Spring contexts and no database.
 
+WorkspaceAuthenticationIntegrationTest checks account-only login, explicit switching, membership-only listing, roles in the selected workspace, permission changes without token renewal, removed membership, old-format rejection, and non-member selection. Production JWT tests now create actual users and memberships rather than relying on email/role claims alone. These API checks use MockMvc; they do not verify the browser interaction or incident/telemetry tenant isolation.
+
 Testcontainers 2.0.5 is pinned for the current Docker daemon. Commons Lang and Commons IO are pinned in test scope to satisfy its Commons Compress dependency without changing application source or adding runtime dependencies.
+
+## Docker startup failures
+
+If many tests report `NoClassDefFoundError: Could not initialize class IntegrationTestSupport`, inspect the first Testcontainers provider error in the Surefire XML/log. A failed static container initializer causes subsequent test classes to fail too; the class may be present and compiled correctly.
+
+On Windows, verify the actual Linux engine rather than only the Desktop window:
+
+```powershell
+docker --context desktop-linux version --format 'Server={{.Server.Version}}'
+```
+
+An engine HTTP 500 prevented container startup during the November 17 verification run. Restarting Docker Desktop restored its server response. A restart interrupts local containers, so coordinate it before proceeding; do not delete volumes or reset Docker data as a first response. Rerun tests in a fresh Maven JVM after recovery and keep the failed log separate from the successful run.

@@ -36,13 +36,13 @@ export default function SettingsPage() {
   }, []);
 
   const handleCopyKey = () => {
-    if (!workspace) return;
+    if (!workspace?.apiKey) return;
     navigator.clipboard.writeText(workspace.apiKey);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const curlSnippet = workspace
+  const curlSnippet = workspace?.apiKey
     ? `curl -X POST http://localhost:8080/api/v1/webhooks/alerts/datadog \\\n  -H "Content-Type: application/json" \\\n  -H "X-RootTrace-Key: ${workspace.apiKey}" \\\n  -d '{"serviceName": "payment-api", "alertType": "HighLatency", "severity": "SEV1", "triggeredAt": "'$(date -u +%FT%TZ)'"}'`
     : '';
 
@@ -116,6 +116,7 @@ export default function SettingsPage() {
                   <span className="flex-1 truncate select-all">{workspace?.apiKey || '••••••••••••••••'}</span>
                   <button
                     onClick={handleCopyKey}
+                    disabled={!workspace?.apiKey}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-sans transition-colors"
                   >
                     {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
@@ -135,6 +136,7 @@ export default function SettingsPage() {
                   </div>
                   <button
                     onClick={handleCopyCurl}
+                    disabled={!workspace?.apiKey}
                     className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                   >
                     {copiedCurl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}

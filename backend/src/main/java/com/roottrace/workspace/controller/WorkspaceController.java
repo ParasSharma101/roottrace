@@ -8,7 +8,7 @@ import com.roottrace.domain.repository.UserRepository;
 import com.roottrace.domain.repository.WorkspaceInviteRepository;
 import com.roottrace.domain.repository.WorkspaceMemberRepository;
 import com.roottrace.domain.repository.WorkspaceRepository;
-import com.roottrace.security.AuthDataSeeder;
+import com.roottrace.security.WorkspaceIdentity;
 import com.roottrace.security.dto.InviteMemberRequest;
 import com.roottrace.security.dto.InviteResponseDto;
 import com.roottrace.security.dto.TeamMemberDto;
@@ -51,21 +51,8 @@ public class WorkspaceController {
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<WorkspaceDetailsDto> getWorkspace(Authentication authentication) {
-        String email = authentication != null ? authentication.getName() : "alice.sre@roottrace.io";
-        User user = userRepository.findByEmail(email).orElse(null);
-
-        Workspace ws = null;
-        if (user != null) {
-            List<WorkspaceMember> memberships = workspaceMemberRepository.findByUserId(user.getId());
-            if (!memberships.isEmpty()) {
-                ws = memberships.getFirst().getWorkspace();
-            }
-        }
-
-        if (ws == null) {
-            ws = workspaceRepository.findById(AuthDataSeeder.DEFAULT_WORKSPACE_ID)
-                    .orElseGet(() -> workspaceRepository.findAll().stream().findFirst().orElseThrow());
-        }
+        var identity = WorkspaceIdentity.require(authentication);
+        Workspace ws = workspaceRepository.findById(identity.requireWorkspace()).orElseThrow();
 
         List<WorkspaceMember> members = workspaceMemberRepository.findByWorkspaceId(ws.getId());
         List<TeamMemberDto> memberDtos = members.stream()
@@ -82,7 +69,7 @@ public class WorkspaceController {
                 ws.getId(),
                 ws.getName(),
                 ws.getSlug(),
-                ws.getApiKey(),
+                identity.roles().contains("ROLE_ADMIN") ? ws.getApiKey() : null,
                 memberDtos
         ));
     }
@@ -94,13 +81,9 @@ public class WorkspaceController {
             @Valid @RequestBody InviteMemberRequest request,
             Authentication authentication
     ) {
-        String adminEmail = authentication != null ? authentication.getName() : "bob.admin@roottrace.io";
-        User admin = userRepository.findByEmail(adminEmail).orElseThrow();
-
-        List<WorkspaceMember> adminMemberships = workspaceMemberRepository.findByUserId(admin.getId());
-        Workspace ws = !adminMemberships.isEmpty()
-                ? adminMemberships.getFirst().getWorkspace()
-                : workspaceRepository.findById(AuthDataSeeder.DEFAULT_WORKSPACE_ID).orElseThrow();
+        var identity = WorkspaceIdentity.require(authentication);
+        User admin = userRepository.findById(identity.userId()).orElseThrow();
+        Workspace ws = workspaceRepository.findById(identity.requireWorkspace()).orElseThrow();
 
         String inviteEmail = request.email().toLowerCase().trim();
         String role = request.role().toUpperCase().startsWith("ROLE_")

@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { getAuthToken, getAuthUser } from '@/lib/auth';
 import { IncidentStatus, IncidentSummary, SeverityLevel } from '@/types';
 import { getIncidents } from '@/lib/api';
 import { StatusBadge, SeverityBadge } from '@/components/Badges';
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +48,10 @@ export default function DashboardPage() {
   }, [selectedStatus, selectedSeverity, searchService]);
 
   useEffect(() => {
+    if (!getAuthToken()) { router.replace('/login'); return; }
+    if (!getAuthUser()?.workspaceId) { router.replace('/workspaces'); return; }
     loadData();
-  }, [loadData]);
+  }, [loadData, router]);
 
   // Compute summary metrics
   const totalCount = incidents.length;

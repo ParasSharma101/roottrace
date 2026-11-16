@@ -1,22 +1,17 @@
 package com.roottrace.security;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.List;
+import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 
     private final SecretKey secretKey;
     private final long expirationMs;
@@ -26,51 +21,26 @@ public class JwtTokenProvider {
         this.expirationMs = settings.getJwtExpirationMs();
     }
 
-    public String generateToken(String email, String name, List<String> roles) {
+    public String generateToken(UUID userId, UUID workspaceId) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expirationMs);
-
-        return Jwts.builder()
-                .subject(email)
-                .claim("name", name)
-                .claim("roles", roles)
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(secretKey)
-                .compact();
+        return Jwts.builder().subject(userId.toString())
+                .claim("sessionVersion", 2)
+                .claim("workspaceId", workspaceId == null ? null : workspaceId.toString())
+                .issuedAt(now).expiration(new Date(now.getTime() + expirationMs))
+                .signWith(secretKey).compact();
     }
 
-    public boolean validateToken(String token) {
-        try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            log.warn("Invalid JWT token: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    public String getEmailFromToken(String token) {
-        return getClaims(token).getSubject();
-    }
-
-    public String getNameFromToken(String token) {
-        Object name = getClaims(token).get("name");
-        return name != null ? name.toString() : getEmailFromToken(token);
-    }
-
-    @SuppressWarnings("unchecked")
-    public List<String> getRolesFromToken(String token) {
+    public TokenIdentity readIdentity(String token) {
         Claims claims = getClaims(token);
-        Object rolesObj = claims.get("roles");
-        if (rolesObj instanceof List<?> list) {
-            return list.stream().map(Object::toString).toList();
+        if (!Integer.valueOf(2).equals(claims.get("sessionVersion", Integer.class))) {
+            throw new IllegalArgumentException("Session version no longer supported");
         }
-        return List.of();
+        String workspaceId = claims.get("workspaceId", String.class);
+        return new TokenIdentity(UUID.fromString(claims.getSubject()),
+                workspaceId == null ? null : UUID.fromString(workspaceId));
     }
+
+    public record TokenIdentity(UUID userId, UUID workspaceId) {}
 
     private Claims getClaims(String token) {
         return Jwts.parser()

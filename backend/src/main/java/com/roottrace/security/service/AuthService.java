@@ -9,6 +9,10 @@ import com.roottrace.domain.repository.WorkspaceRepository;
 import com.roottrace.security.AuthDataSeeder;
 import com.roottrace.security.JwtTokenProvider;
 import com.roottrace.security.UserRole;
+import com.roottrace.security.WorkspaceIdentity;
+import com.roottrace.security.dto.WorkspaceMembershipDto;
+import com.roottrace.domain.exception.ResourceNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import com.roottrace.security.dto.AuthResponse;
 import com.roottrace.security.dto.DemoLoginRequest;
 import com.roottrace.security.dto.LoginRequest;
@@ -19,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -73,146 +78,73 @@ public class AuthService {
         WorkspaceMember member = new WorkspaceMember(workspace, user, UserRole.ROLE_ADMIN.name());
         workspaceMemberRepository.save(member);
 
-        List<String> roles = List.of(UserRole.ROLE_ADMIN.name(), UserRole.ROLE_SRE.name(), UserRole.ROLE_VIEWER.name());
-        String token = tokenProvider.generateToken(user.getEmail(), user.getFullName(), roles);
-
-        return new AuthResponse(
-                token,
-                user.getId(),
-                user.getEmail(),
-                user.getFullName(),
-                roles,
-                workspace.getId(),
-                workspace.getName(),
-                workspace.getSlug(),
-                workspace.getApiKey()
-        );
+        return response(user, member);
     }
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        String email = request.email().toLowerCase().trim();
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(request.email().toLowerCase().trim())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
-
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid email or password");
         }
+        // Account-only session: the user must explicitly select a workspace.
+        return response(user, null);
+    }
 
-        List<WorkspaceMember> memberships = workspaceMemberRepository.findByUserId(user.getId());
-        WorkspaceMember primaryMembership = !memberships.isEmpty() ? memberships.getFirst() : null;
+    @Transactional(readOnly = true)
+    public List<WorkspaceMembershipDto> listWorkspaces(UUID userId) {
+        return workspaceMemberRepository.findByUserId(userId).stream()
+                .map(member -> new WorkspaceMembershipDto(
+                        member.getWorkspace().getId(), member.getWorkspace().getName(),
+                        member.getWorkspace().getSlug(), member.getRole()))
+                .sorted(Comparator.comparing(WorkspaceMembershipDto::name)
+                        .thenComparing(WorkspaceMembershipDto::workspaceId))
+                .toList();
+    }
 
-        Workspace ws;
-        List<String> roles;
-        if (primaryMembership != null) {
-            ws = primaryMembership.getWorkspace();
-            String role = primaryMembership.getRole();
-            if (UserRole.ROLE_ADMIN.name().equals(role)) {
-                roles = List.of(UserRole.ROLE_ADMIN.name(), UserRole.ROLE_SRE.name(), UserRole.ROLE_VIEWER.name());
-            } else if (UserRole.ROLE_SRE.name().equals(role)) {
-                roles = List.of(UserRole.ROLE_SRE.name(), UserRole.ROLE_VIEWER.name());
-            } else {
-                roles = List.of(UserRole.ROLE_VIEWER.name());
-            }
-        } else {
-            ws = workspaceRepository.findById(AuthDataSeeder.DEFAULT_WORKSPACE_ID)
-                    .orElseGet(() -> workspaceRepository.findAll().stream().findFirst().orElse(null));
-            roles = List.of(UserRole.ROLE_SRE.name(), UserRole.ROLE_VIEWER.name());
-        }
-
-        String token = tokenProvider.generateToken(user.getEmail(), user.getFullName(), roles);
-
-        return new AuthResponse(
-                token,
-                user.getId(),
-                user.getEmail(),
-                user.getFullName(),
-                roles,
-                ws != null ? ws.getId() : null,
-                ws != null ? ws.getName() : "RootTrace Workspace",
-                ws != null ? ws.getSlug() : "default",
-                ws != null ? ws.getApiKey() : "roottrace_dev_secret_key"
-        );
+    @Transactional(readOnly = true)
+    public AuthResponse selectWorkspace(UUID userId, UUID workspaceId) {
+        WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
+        return response(member.getUser(), member);
     }
 
     @Transactional(readOnly = true)
     public AuthResponse demoLogin(DemoLoginRequest request) {
-        String roleParam = request.role().toUpperCase().trim();
-        String email = switch (roleParam) {
+        String email = switch (request.role().toUpperCase().trim()) {
             case "ADMIN" -> "bob.admin@roottrace.io";
             case "VIEWER" -> "charlie.dev@roottrace.io";
             default -> "alice.sre@roottrace.io";
         };
-
         User user = userRepository.findByEmail(email)
-                .orElseGet(() -> {
-                    // Fallback in test context if DB not seeded yet
-                    User fallback = new User(email, passwordEncoder.encode("password123"), roleParam + " User");
-                    return userRepository.save(fallback);
-                });
-
-        List<WorkspaceMember> memberships = workspaceMemberRepository.findByUserId(user.getId());
-        Workspace ws = !memberships.isEmpty()
-                ? memberships.getFirst().getWorkspace()
-                : workspaceRepository.findById(AuthDataSeeder.DEFAULT_WORKSPACE_ID).orElse(null);
-
-        List<String> roles = switch (roleParam) {
-            case "ADMIN" -> List.of(UserRole.ROLE_ADMIN.name(), UserRole.ROLE_SRE.name(), UserRole.ROLE_VIEWER.name());
-            case "VIEWER" -> List.of(UserRole.ROLE_VIEWER.name());
-            default -> List.of(UserRole.ROLE_SRE.name(), UserRole.ROLE_VIEWER.name());
-        };
-
-        String token = tokenProvider.generateToken(user.getEmail(), user.getFullName(), roles);
-
-        return new AuthResponse(
-                token,
-                user.getId(),
-                user.getEmail(),
-                user.getFullName(),
-                roles,
-                ws != null ? ws.getId() : null,
-                ws != null ? ws.getName() : "RootTrace Cloud Dev",
-                ws != null ? ws.getSlug() : "roottrace-dev",
-                ws != null ? ws.getApiKey() : "roottrace_dev_secret_key"
-        );
+                .orElseThrow(() -> new BadCredentialsException("Demo account unavailable"));
+        WorkspaceMember member = workspaceMemberRepository
+                .findByWorkspaceIdAndUserId(AuthDataSeeder.DEFAULT_WORKSPACE_ID, user.getId())
+                .orElseThrow(() -> new BadCredentialsException("Demo membership unavailable"));
+        return response(user, member);
     }
 
     @Transactional(readOnly = true)
-    public UserProfileDto getProfile(String email, boolean isBreakGlass) {
-        if (isBreakGlass || "emergency-breakglass@roottrace.internal".equals(email)) {
-            Workspace ws = workspaceRepository.findById(AuthDataSeeder.DEFAULT_WORKSPACE_ID).orElse(null);
-            return new UserProfileDto(
-                    null,
-                    "emergency-breakglass@roottrace.internal",
-                    "Emergency Break-Glass Account",
-                    List.of(UserRole.ROLE_ADMIN.name(), UserRole.ROLE_SRE.name()),
-                    ws != null ? ws.getId() : null,
-                    ws != null ? ws.getName() : "Emergency Mode",
-                    ws != null ? ws.getSlug() : "emergency",
-                    ws != null ? ws.getApiKey() : "",
-                    true
-            );
-        }
+    public UserProfileDto getProfile(WorkspaceIdentity identity) {
+        User user = userRepository.findById(identity.userId())
+                .orElseThrow(() -> new BadCredentialsException("Account unavailable"));
+        WorkspaceMember member = identity.workspaceId() == null ? null : workspaceMemberRepository
+                .findByWorkspaceIdAndUserId(identity.workspaceId(), identity.userId())
+                .orElseThrow(() -> new AccessDeniedException("Membership unavailable"));
+        Workspace ws = member == null ? null : member.getWorkspace();
+        return new UserProfileDto(user.getId(), user.getEmail(), user.getFullName(), identity.roles(),
+                ws == null ? null : ws.getId(), ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
+                member != null && "ROLE_ADMIN".equals(member.getRole()) ? ws.getApiKey() : null, false);
+    }
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
-
-        List<WorkspaceMember> memberships = workspaceMemberRepository.findByUserId(user.getId());
-        Workspace ws = !memberships.isEmpty() ? memberships.getFirst().getWorkspace() : null;
-        List<String> roles = !memberships.isEmpty()
-                ? List.of(memberships.getFirst().getRole())
-                : List.of(UserRole.ROLE_SRE.name());
-
-        return new UserProfileDto(
-                user.getId(),
-                user.getEmail(),
-                user.getFullName(),
-                roles,
-                ws != null ? ws.getId() : null,
-                ws != null ? ws.getName() : "Default Workspace",
-                ws != null ? ws.getSlug() : "default",
-                ws != null ? ws.getApiKey() : "",
-                false
-        );
+    private AuthResponse response(User user, WorkspaceMember member) {
+        Workspace ws = member == null ? null : member.getWorkspace();
+        var identity = new WorkspaceIdentity(user.getId(), user.getEmail(), user.getFullName(),
+                ws == null ? null : ws.getId(), member == null ? null : member.getRole());
+        return new AuthResponse(tokenProvider.generateToken(user.getId(), identity.workspaceId()),
+                user.getId(), user.getEmail(), user.getFullName(), identity.roles(), identity.workspaceId(),
+                ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
+                member != null && "ROLE_ADMIN".equals(member.getRole()) ? ws.getApiKey() : null);
     }
 }

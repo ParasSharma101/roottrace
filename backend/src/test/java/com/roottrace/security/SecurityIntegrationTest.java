@@ -38,7 +38,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private com.roottrace.security.service.AuthService authService;
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private HypothesisRepository hypothesisRepository;
     @Autowired private IncidentNoteRepository incidentNoteRepository;
@@ -117,7 +117,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Test
     @DisplayName("GET /api/v1/auth/me - should return authenticated profile and workspace from JWT")
     void testGetMe() throws Exception {
-        String token = jwtTokenProvider.generateToken("alice.sre@roottrace.io", "Alice", List.of("ROLE_SRE"));
+        String token = authService.demoLogin(new DemoLoginRequest("SRE")).token();
 
         mockMvc.perform(get("/api/v1/auth/me")
                         .header("Authorization", "Bearer " + token))
@@ -130,7 +130,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Test
     @DisplayName("POST /api/v1/workspace/invites - ADMIN can invite team members to workspace")
     void testWorkspaceInvite() throws Exception {
-        String adminToken = jwtTokenProvider.generateToken("bob.admin@roottrace.io", "Bob", List.of("ROLE_ADMIN"));
+        String adminToken = authService.demoLogin(new DemoLoginRequest("ADMIN")).token();
         InviteMemberRequest inviteReq = new InviteMemberRequest("newdev@roottrace.io", "ROLE_SRE");
 
         mockMvc.perform(post("/api/v1/workspace/invites")
@@ -146,7 +146,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Test
     @DisplayName("RBAC - ROLE_VIEWER can read incidents but gets 403 Forbidden on verify hypothesis")
     void testViewerRolePermissions() throws Exception {
-        String viewerToken = jwtTokenProvider.generateToken("viewer@roottrace.io", "Viewer", List.of("ROLE_VIEWER"));
+        String viewerToken = authService.demoLogin(new DemoLoginRequest("VIEWER")).token();
 
         Incident inc = incidentRepository.save(new Incident("Test Incident", SeverityLevel.SEV2, IncidentStatus.INVESTIGATING));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Hypothesis 1", BigDecimal.valueOf(0.8), HypothesisStatus.PENDING, "[]"));
@@ -168,7 +168,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Test
     @DisplayName("RBAC - ROLE_SRE can verify hypothesis and stamps authenticated user identity into audit note")
     void testSreRoleVerifyHypothesis() throws Exception {
-        String sreToken = jwtTokenProvider.generateToken("alice.sre@roottrace.io", "Alice", List.of("ROLE_SRE"));
+        String sreToken = authService.demoLogin(new DemoLoginRequest("SRE")).token();
 
         Incident inc = incidentRepository.save(new Incident("Test Incident SRE", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Database pool exhaustion", BigDecimal.valueOf(0.95), HypothesisStatus.PENDING, "[]"));

@@ -19,7 +19,7 @@ import {
   Layers
 } from 'lucide-react';
 import { triggerScenarioA, triggerScenarioB } from '@/lib/api';
-import { AuthUser, getAuthUser, loginDemoRole, clearAuthSession } from '@/lib/auth';
+import { AuthUser, getAuthUser, loginDemoRole, clearAuthSession, TOKEN_KEY } from '@/lib/auth';
 import { isDemoEnabled } from '@/lib/demo';
 
 export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
@@ -38,7 +38,16 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
     };
 
     window.addEventListener('auth-change', handleAuthChange);
-    return () => window.removeEventListener('auth-change', handleAuthChange);
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.storageArea === localStorage && (event.key === TOKEN_KEY || event.key === null)) {
+        window.location.assign(event.newValue ? '/workspaces' : '/login');
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('auth-change', handleAuthChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const handleSimulate = async (scenario: 'A' | 'B') => {
@@ -195,7 +204,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
               <span className="font-medium text-[11px] text-slate-200 max-w-[120px] truncate">
                 {user ? user.fullName || user.email.split('@')[0] : 'Sign In'}
               </span>
-              {user && <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
+              {user?.workspaceId && <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${
                 currentRole === 'ADMIN'
                   ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                   : currentRole === 'SRE'
@@ -214,7 +223,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
                   <div className="font-semibold text-slate-200 truncate">{user?.fullName}</div>
                   <div className="text-[11px] text-slate-400 truncate">{user?.email}</div>
                   <div className="text-[10px] text-indigo-400 font-mono mt-1">
-                    Workspace: {user?.workspaceName || 'Personal'}
+                    Workspace: {user?.workspaceName || 'Select a workspace'}
                   </div>
                 </div>
 
@@ -257,6 +266,10 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
                 {/* Actions */}
                 </>}
                 <div className="mt-1 pt-1 border-t border-slate-800/80">
+                  <Link href="/workspaces" onClick={() => setShowUserMenu(false)}
+                    className="block px-3.5 py-2 text-slate-300 hover:bg-slate-900 hover:text-white">
+                    Switch workspace
+                  </Link>
                   <Link
                     href="/settings"
                     onClick={() => setShowUserMenu(false)}

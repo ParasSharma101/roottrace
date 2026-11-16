@@ -9,15 +9,48 @@ export interface AuthUser {
   name?: string;
   roles: string[];
   token: string;
-  workspaceId?: string;
-  workspaceName?: string;
-  workspaceSlug?: string;
-  apiKey?: string;
+  workspaceId?: string | null;
+  workspaceName?: string | null;
+  workspaceSlug?: string | null;
+  apiKey?: string | null;
   isBreakGlass?: boolean;
 }
 
-const TOKEN_KEY = 'roottrace_auth_token';
+export const TOKEN_KEY = 'roottrace_auth_token';
 const USER_KEY = 'roottrace_auth_user';
+
+export interface WorkspaceMembership {
+  workspaceId: string;
+  name: string;
+  slug: string;
+  role: string;
+}
+
+async function accountRequest(path: string, options?: RequestInit): Promise<Response> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Sign in to continue');
+  const response = await fetch(`${getApiBase()}/auth/${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    if (response.status === 401) clearAuthSession();
+    throw new Error(response.status === 401 ? 'Your session expired. Sign in again.' : 'Workspace access unavailable');
+  }
+  return response;
+}
+
+export async function listMyWorkspaces(): Promise<WorkspaceMembership[]> {
+  return (await accountRequest('workspaces')).json();
+}
+
+export async function selectWorkspace(workspaceId: string): Promise<void> {
+  const response = await accountRequest('select-workspace', {
+    method: 'POST', body: JSON.stringify({ workspaceId }),
+  });
+  setAuthSession(await response.json());
+}
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;

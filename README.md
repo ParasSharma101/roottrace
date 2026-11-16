@@ -135,6 +135,8 @@ cd backend
 ```
 Backend will start on `http://localhost:8080`.
 
+Password login now leads to explicit workspace selection; signup selects the workspace just created. Users can switch memberships from the navbar. Previous-format sessions require a fresh login. See [the workspace design](backend/WORKSPACE_DESIGN.md) for the API contract and remaining tenant-isolation work. Incident/telemetry isolation is still incomplete, so this increment is not ready for public multi-tenant deployment.
+
 ### 4. Run Frontend Dashboard
 ```bash
 cd frontend

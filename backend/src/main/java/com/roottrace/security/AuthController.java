@@ -4,14 +4,16 @@ import com.roottrace.security.dto.AuthResponse;
 import com.roottrace.security.dto.LoginRequest;
 import com.roottrace.security.dto.SignupRequest;
 import com.roottrace.security.dto.UserProfileDto;
+import com.roottrace.security.dto.SelectWorkspaceRequest;
+import com.roottrace.security.dto.WorkspaceMembershipDto;
 import com.roottrace.security.service.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -37,16 +39,17 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserProfileDto> getCurrentUser(HttpServletRequest request) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+    public UserProfileDto getCurrentUser(Authentication authentication) {
+        return authService.getProfile(WorkspaceIdentity.require(authentication));
+    }
 
-        boolean isBreakGlass = Boolean.TRUE.equals(request.getAttribute("isBreakGlass"))
-                || "emergency-breakglass@roottrace.internal".equals(auth.getName());
+    @GetMapping("/workspaces")
+    public List<WorkspaceMembershipDto> listWorkspaces(Authentication authentication) {
+        return authService.listWorkspaces(WorkspaceIdentity.require(authentication).userId());
+    }
 
-        UserProfileDto profile = authService.getProfile(auth.getName(), isBreakGlass);
-        return ResponseEntity.ok(profile);
+    @PostMapping("/select-workspace")
+    public AuthResponse selectWorkspace(@Valid @RequestBody SelectWorkspaceRequest request, Authentication authentication) {
+        return authService.selectWorkspace(WorkspaceIdentity.require(authentication).userId(), request.workspaceId());
     }
 }
