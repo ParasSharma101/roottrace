@@ -43,7 +43,10 @@ public class AiInvestigationClient {
         this.objectMapper = objectMapper;
         this.geminiApiKey = geminiApiKey;
         this.geminiModel = geminiModel;
-        this.restClient = RestClient.builder().build();
+        var requestFactory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(10_000);
+        requestFactory.setReadTimeout(60_000);
+        this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
     public AiInvestigationResult investigate(IncidentContextBundle bundle) {
@@ -52,7 +55,7 @@ public class AiInvestigationClient {
                 log.info("Calling Google Gemini API model [{}] for incident [{}]", geminiModel, bundle.incidentId());
                 return callGeminiApi(bundle);
             } catch (Exception ex) {
-                log.warn("Gemini API call failed (error: {}). Falling back to heuristic SRE engine.", ex.getMessage(), ex);
+                log.warn("Gemini API failed with {}. Falling back to heuristic SRE engine.", ex.getClass().getSimpleName());
             }
         } else {
             log.info("GEMINI_API_KEY is not set. Using deterministic SRE heuristic engine for incident [{}]", bundle.incidentId());

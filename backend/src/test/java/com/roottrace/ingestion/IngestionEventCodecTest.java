@@ -21,7 +21,7 @@ class IngestionEventCodecTest {
         when(workspaces.existsById(workspace)).thenReturn(true);
         String json = codec.encode(workspace, "LOG", Map.of("workspaceId", UUID.randomUUID().toString()));
         assertThat(codec.decode(json, "LOG").workspaceId()).isEqualTo(workspace);
-        for (String invalid : new String[]{json.replace("\"eventVersion\":1", "\"eventVersion\":2"),
+        for (String invalid : new String[]{json.replace("\"eventVersion\":1", "\"eventVersion\":3"),
                 json.replace("\"eventVersion\":1", "\"eventVersion\":4294967297"),
                 json.replace("\"LOG\"", "\"ALERT\""),
                 json.replace(workspace.toString(), UUID.randomUUID().toString()),

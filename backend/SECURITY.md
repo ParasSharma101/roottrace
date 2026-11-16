@@ -44,3 +44,5 @@ This decision does not complete workspace authorization, workspace ingestion key
 ## Verification
 
 SecuritySettingsTest checks startup failure conditions, credential separation, profile precedence, and sanitized validation errors. CredentialFilterTest checks filter boundaries. ProductionCredentialIntegrationTest checks HTTP authorization with production settings, emergency headers, ingestion keys, and tokens signed using the old development key. The full backend suite uses disposable infrastructure; it does not call live AI/GitHub providers.
+
+Durable processing: V6 adds workspace-scoped request identity, replay receipts, and leased tasks with ownership foreign keys. Status endpoints enforce the same workspace boundary; failures store only safe exception codes. Keys revoked after acceptance cannot cancel queued events. Envelope ownership still trusts restricted broker producers. See [DURABLE_PIPELINE.md](DURABLE_PIPELINE.md) for the changed 202 contract and remaining operational limits.

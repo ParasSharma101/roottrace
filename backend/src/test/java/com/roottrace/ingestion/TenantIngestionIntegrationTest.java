@@ -158,7 +158,7 @@ class TenantIngestionIntegrationTest extends IntegrationTestSupport {
     }
     private void await(BooleanSupplier condition) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 15000;
-        while (!condition.getAsBoolean() && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        while (!condition.getAsBoolean() && System.currentTimeMillis() < deadline) { tickBackgroundWork(); Thread.sleep(100); }
         assertThat(condition.getAsBoolean()).as("asynchronous Kafka processing completed").isTrue();
     }
     private record Account(UUID workspace, String token) {}

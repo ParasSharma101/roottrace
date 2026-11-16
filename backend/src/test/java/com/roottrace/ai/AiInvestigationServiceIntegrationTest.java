@@ -18,10 +18,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Transactional
 class AiInvestigationServiceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private AiInvestigationService aiInvestigationService;
+    @Autowired private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private WorkspaceRepository workspaceRepository;
     @Autowired private AlertRepository alertRepository;
@@ -75,7 +75,7 @@ class AiInvestigationServiceIntegrationTest extends com.roottrace.support.Integr
         logEventRepository.saveAll(logs);
 
         // 4. Run AI Investigation
-        List<Hypothesis> hypotheses = aiInvestigationService.investigateIncident(incident.getId());
+        List<Hypothesis> hypotheses = investigate(incident.getId());
 
         // 5. Assertions
         assertThat(hypotheses).isNotEmpty();
@@ -138,7 +138,7 @@ class AiInvestigationServiceIntegrationTest extends com.roottrace.support.Integr
         logEventRepository.saveAll(logs);
 
         // 4. Run AI Investigation
-        List<Hypothesis> hypotheses = aiInvestigationService.investigateIncident(incident.getId());
+        List<Hypothesis> hypotheses = investigate(incident.getId());
 
         // 5. Assertions
         assertThat(hypotheses).isNotEmpty();
@@ -152,4 +152,10 @@ class AiInvestigationServiceIntegrationTest extends com.roottrace.support.Integr
         assertThat(primaryHypothesis.getDescription()).contains("timeout");
         assertThat(primaryHypothesis.getEvidenceCitations()).contains(pr.getId().toString());
     }
+    private List<Hypothesis> investigate(UUID id) {
+        var result = aiInvestigationService.evaluate(Workspace.LEGACY_WORKSPACE_ID, id);
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .execute(status -> aiInvestigationService.applyResult(Workspace.LEGACY_WORKSPACE_ID, id, result));
+    }
+
 }

@@ -154,6 +154,7 @@ class GitHubAndRedisContextIntegrationTest extends com.roottrace.support.Integra
         UUID createdIncidentId = null;
 
         while (System.currentTimeMillis() < deadline) {
+            tickBackgroundWork();
             var incidents = incidentRepository.findActiveIncidentsForService(
                     com.roottrace.security.AuthDataSeeder.DEFAULT_WORKSPACE_ID,
                     List.of(IncidentStatus.OPEN, IncidentStatus.INVESTIGATING),

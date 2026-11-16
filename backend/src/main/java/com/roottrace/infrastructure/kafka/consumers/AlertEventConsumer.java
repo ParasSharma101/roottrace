@@ -40,22 +40,24 @@ public class AlertEventConsumer {
     private final EventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
     private final IngestionEventCodec codec;
-    private final org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
+    private final com.roottrace.infrastructure.jobs.DurableTaskStore tasks;
+    private final com.roottrace.ingestion.service.IngestionInbox inbox;
 
     public AlertEventConsumer(IncidentRepository incidentRepository,
                               WorkspaceRepository workspaceRepository,
                               AlertRepository alertRepository,
                               EventPublisher eventPublisher,
                               ObjectMapper objectMapper,
-                              org.springframework.context.ApplicationEventPublisher applicationEventPublisher,
-                              IngestionEventCodec codec) {
+                              com.roottrace.infrastructure.jobs.DurableTaskStore tasks,
+                              IngestionEventCodec codec, com.roottrace.ingestion.service.IngestionInbox inbox) {
         this.incidentRepository = incidentRepository;
         this.workspaceRepository = workspaceRepository;
         this.alertRepository = alertRepository;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.codec = codec;
-        this.applicationEventPublisher = applicationEventPublisher;
+        this.tasks = tasks;
+        this.inbox = inbox;
     }
 
     @KafkaListener(
@@ -85,6 +87,8 @@ public class AlertEventConsumer {
             }
             Object rawDetails = payload.get("rawPayload");
             String rawPayloadJson = rawDetails != null ? objectMapper.writeValueAsString(rawDetails) : "{}";
+
+            if (!inbox.firstDelivery(decoded, "ALERT", record)) return;
 
             // 1. Alert Storm Deduplication: Check if active incident already exists for this service in the last 15 mins
             Instant windowStart = Instant.now().minus(DEDUPLICATION_WINDOW_MINUTES, ChronoUnit.MINUTES);
@@ -120,13 +124,10 @@ public class AlertEventConsumer {
             alertRepository.save(alert);
             log.info("Successfully persisted alert [{}] linked to incident [{}]", alert.getId(), incident.getId());
 
-            // 3. Publish IncidentCreatedEvent only after both Incident and Alert are safely persisted
+            // Enqueued in the same transaction as the incident, alert, and receipt.
             if (activeIncidents.isEmpty()) {
-                applicationEventPublisher.publishEvent(new com.roottrace.domain.event.IncidentCreatedEvent(
-                        incident.getId(),
-                        serviceName,
-                        triggeredAt
-                ));
+                alertRepository.flush();
+                tasks.enqueueInvestigation(decoded.workspaceId(), incident.getId());
             }
 
         } catch (JsonProcessingException | IllegalArgumentException | ClassCastException | DateTimeException ex) {

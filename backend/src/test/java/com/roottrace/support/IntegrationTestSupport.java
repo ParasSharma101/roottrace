@@ -13,6 +13,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * Docker is required; never fall back to development services when unavailable.
  */
 public abstract class IntegrationTestSupport {
+    @org.springframework.beans.factory.annotation.Autowired
+    protected com.roottrace.infrastructure.jobs.DurableTaskWorker backgroundWorker;
+    protected void tickBackgroundWork() {
+        for (int i=0; i<100 && backgroundWorker.publishOne(); i++) { }
+        for (int i=0; i<100 && backgroundWorker.investigateOne(); i++) { }
+    }
 
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine")
             .withDatabaseName("roottrace_test")
@@ -40,6 +46,7 @@ public abstract class IntegrationTestSupport {
         registry.add("spring.data.redis.password", () -> "");
         registry.add("spring.data.redis.database", () -> 0);
         registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
+        registry.add("roottrace.jobs.scheduling.enabled", () -> "false");
         registry.add("github.token", () -> "");
         registry.add("gemini.api-key", () -> "");
         registry.add("roottrace.security.jwt.secret", () ->

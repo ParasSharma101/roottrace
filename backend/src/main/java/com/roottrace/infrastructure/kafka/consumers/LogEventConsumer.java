@@ -29,14 +29,16 @@ public class LogEventConsumer {
     private final EventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
     private final IngestionEventCodec codec;
+    private final com.roottrace.ingestion.service.IngestionInbox inbox;
 
     public LogEventConsumer(LogEventRepository logEventRepository,
                             EventPublisher eventPublisher,
-                            ObjectMapper objectMapper, IngestionEventCodec codec) {
+                            ObjectMapper objectMapper, IngestionEventCodec codec, com.roottrace.ingestion.service.IngestionInbox inbox) {
         this.logEventRepository = logEventRepository;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
         this.codec = codec;
+        this.inbox = inbox;
     }
 
     @KafkaListener(
@@ -77,6 +79,7 @@ public class LogEventConsumer {
                         metadataJson
                 );
 
+                if (!inbox.firstDelivery(decoded, "LOG", record)) continue;
                 event.setWorkspaceId(decoded.workspaceId());
                 eventsToPersist.add(event);
             } catch (JsonProcessingException | IllegalArgumentException ex) {

@@ -15,6 +15,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<Map<String,Object>> handleDatabaseUnavailable(org.springframework.dao.DataAccessException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                "error", "SERVICE_UNAVAILABLE", "message", "Database operation could not be completed"));
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleResourceNotFound(ResourceNotFoundException ex) {
         Map<String, Object> response = new HashMap<>();

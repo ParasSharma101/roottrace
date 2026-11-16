@@ -21,13 +21,15 @@ class IngestionConsumerFailureTest {
     private final LogEventRepository logs = mock(LogEventRepository.class);
     private final EventPublisher publisher = mock(EventPublisher.class);
     private final IngestionEventCodec codec = mock(IngestionEventCodec.class);
-    private final LogEventConsumer consumer = new LogEventConsumer(logs, publisher, mapper, codec);
+    private final com.roottrace.ingestion.service.IngestionInbox inbox = mock(com.roottrace.ingestion.service.IngestionInbox.class);
+    private final LogEventConsumer consumer = new LogEventConsumer(logs, publisher, mapper, codec, inbox);
     private final ConsumerRecord<String, String> record = new ConsumerRecord<>(KafkaTopicConfig.RAW_LOGS_TOPIC, 0, 0, "key", "payload");
 
     @Test
     void persistenceFailurePropagatesForKafkaRetry() throws Exception {
-        when(codec.decode("payload", "LOG")).thenReturn(new IngestionEventCodec.Decoded(Workspace.LEGACY_WORKSPACE_ID,
+        when(codec.decode("payload", "LOG")).thenReturn(new IngestionEventCodec.Decoded(Workspace.LEGACY_WORKSPACE_ID, null,
                 mapper.readTree("{\"serviceName\":\"shared\",\"timestamp\":\"2026-11-17T00:00:00Z\",\"logLevel\":\"ERROR\",\"message\":\"test\"}")));
+        when(inbox.firstDelivery(any(), anyString(), any())).thenReturn(true);
         when(logs.saveAll(anyList())).thenThrow(new DataAccessResourceFailureException("database unavailable"));
         assertThatThrownBy(() -> consumer.consumeLogBatch(List.of(record))).isInstanceOf(DataAccessResourceFailureException.class);
         verifyNoInteractions(publisher);
