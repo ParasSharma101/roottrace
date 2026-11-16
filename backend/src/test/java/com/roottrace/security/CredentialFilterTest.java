@@ -34,7 +34,7 @@ class CredentialFilterTest {
     @Test
     void ingestionCredentialCannotAuthenticateAsAnApplicationUser() throws Exception {
         MockHttpServletRequest request = request("/api/v1/workspace", INGESTION);
-        new WebhookApiKeyFilter(new SecuritySettings(environment()))
+        new WebhookApiKeyFilter(new SecuritySettings(environment()), keys())
                 .doFilter(request, new MockHttpServletResponse(), (req, res) ->
                         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull());
     }
@@ -43,7 +43,7 @@ class CredentialFilterTest {
     void validIngestionCredentialWorksOnWebhooksWithContextPath() throws Exception {
         MockHttpServletRequest request = request("/roottrace/api/v1/webhooks/logs", INGESTION);
         request.setContextPath("/roottrace");
-        new WebhookApiKeyFilter(new SecuritySettings(environment()))
+        new WebhookApiKeyFilter(new SecuritySettings(environment()), keys())
                 .doFilter(request, new MockHttpServletResponse(), (req, res) ->
                         assertThat(SecurityContextHolder.getContext().getAuthentication().getName())
                                 .isEqualTo("ingestion-service"));
@@ -51,9 +51,15 @@ class CredentialFilterTest {
 
     @Test
     void incorrectIngestionCredentialDoesNotAuthenticate() throws Exception {
-        new WebhookApiKeyFilter(new SecuritySettings(environment()))
+        new WebhookApiKeyFilter(new SecuritySettings(environment()), keys())
                 .doFilter(request("/api/v1/webhooks/logs", "wrong-key"), new MockHttpServletResponse(),
                         (req, res) -> assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull());
+    }
+
+    private com.roottrace.security.service.IngestionKeyService keys() {
+        var keys = org.mockito.Mockito.mock(com.roottrace.security.service.IngestionKeyService.class);
+        org.mockito.Mockito.when(keys.resolveWorkspace(org.mockito.ArgumentMatchers.anyString())).thenReturn(java.util.Optional.empty());
+        return keys;
     }
 
     private MockEnvironment environment() {

@@ -7,9 +7,11 @@ import java.util.Map;
 
 public record AlertWebhookRequest(
     @NotBlank(message = "serviceName must not be blank")
+    @jakarta.validation.constraints.Size(max = 128)
     String serviceName,
 
     @NotBlank(message = "alertType must not be blank")
+    @jakarta.validation.constraints.Size(max = 128)
     String alertType,
 
     String severity,

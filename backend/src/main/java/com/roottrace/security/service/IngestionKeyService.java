@@ -61,8 +61,7 @@ public class IngestionKeyService {
         keys.revoke(workspace, id, identity.userId(), Instant.now());
     }
 
-    // Authentication resolver for the following tenant-aware ingestion increment.
-    // Deliberately not wired into the old unscoped webhook path yet.
+    // Rechecks revocation on every new webhook request; already accepted events remain valid.
     @Transactional(readOnly = true)
     public Optional<UUID> resolveWorkspace(String secret) {
         if (secret == null || secret.isBlank() || secret.length() > 256) return Optional.empty();

@@ -55,7 +55,7 @@ export function IngestionKeysPanel({ isAdmin }: { isAdmin: boolean }) {
     <div>
       <h2 className="text-sm font-semibold text-slate-200">Ingestion keys</h2>
       <p className="mt-2 text-xs text-slate-400">Use separate named credentials for each integration. New secrets are shown once.</p>
-      <p className="mt-2 text-xs text-amber-200">Webhook ingestion with these keys is not available in this build.</p>
+      <p className="mt-2 text-xs text-slate-400">Send the key in the X-RootTrace-Key header to the log or alert webhook. Each key writes only to this workspace.</p>
     </div>
     {!isAdmin ? <p className="text-sm text-slate-400">A workspace administrator can manage ingestion keys.</p> : <>
       {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}

@@ -1,6 +1,6 @@
 # Named workspace ingestion keys
 
-Date: 2026-11-17. Status: credential management implemented; tenant-aware webhook integration is the next increment.
+Date: 2026-11-17. Status: credential management and workspace-aware log/alert webhooks implemented; production infrastructure and reliability hardening remain.
 
 ## Decision and boundaries
 
@@ -37,12 +37,30 @@ V4 creates workspace_ingestion_keys. Existing non-legacy workspace keys of at le
 
 This preserves previously issued prototype credentials where feasible; it does not establish their randomness or erase copies from backups/WAL/older clients. Rotate imported keys before a real production launch. Use a coordinated application upgrade so old nodes cannot write new plaintext workspace keys after the migration. No existing development/production database has been migrated by the implementation tests.
 
-## Deliberate integration gate
+## Webhook integration
 
-IngestionKeyService.resolveWorkspace validates hashes, revoked status, and non-legacy ownership for the following integration step. It is deliberately not connected to WebhookApiKeyFilter yet: the existing Kafka path cannot safely attribute tenant-owned evidence end to end. The current global ingestion credential still routes unscoped alerts to legacy quarantine. Named keys shown here do not yet authenticate webhook requests, and the UI says so explicitly.
+Named keys now authenticate log and alert webhooks through `X-RootTrace-Key`. Resolution checks the hash, revocation status, and a non-legacy owning workspace on every new request. A typed IngestionIdentity supplies the workspace; neither request fields nor nested metadata/details can override it. Keys cannot authenticate application APIs. Existing selected ADMIN/SRE bearer sessions retain webhook access in their selected workspace. Account-only/viewer sessions cannot ingest. Requests containing both a key header and an Authorization header return 400 rather than choosing an identity implicitly.
 
-V5 now provides workspace-owned log/deployment persistence and scopes correlation, timeline/export, and Redis incident-context reads. Next: connect authenticated key identity to a versioned server-generated event envelope and carry that ownership through consumers before enabling tenant-key webhook traffic. Do not accept payload workspace IDs as authority or enable new keys on the old path. Deployment ingestion, key usage metrics/rate limits/expiry, and workspace deletion lifecycle are separate pending tasks.
+| Endpoint | Payload |
+| --- | --- |
+| POST `/api/v1/webhooks/logs` | `{ "serviceName": "checkout", "timestamp": "2026-11-17T00:00:00Z", "logLevel": "ERROR", "message": "Connection timeout" }` |
+| POST `/api/v1/webhooks/logs/batch` | Array of 1-500 valid log objects; validated in full before publishing. |
+| POST `/api/v1/webhooks/alerts/{source}` | `{ "serviceName": "checkout", "alertType": "HighLatency", "severity": "SEV1", "triggeredAt": "2026-11-17T00:00:00Z", "details": {} }` |
+
+Service and alert-type names are limited to 128 characters; source is at most 64. Optional log stackTrace/metadata are supported. New credentials are shown once in Settings; use separate keys for integrations and keep them out of client/browser application bundles. Unknown or revoked keys return 401. Revocation stops subsequent authenticated requests; it does not cancel in-flight requests or already accepted broker events.
+
+Controllers serialize a version 1 server-owned envelope `{eventVersion: 1, eventType: "LOG"|"ALERT", workspaceId, payload}` and partition by `workspaceId:serviceName`. Consumers validate version, type, workspace existence, and payload before persistence. Invalid envelopes go to the relevant DLQ without becoming legacy or tenant records. Historical raw events always go to legacy quarantine, even if they contain workspaceId. The shared configured global credential also writes only to legacy; it grants no tenant/application access. Deployment ingestion is still pending.
+
+A 202 is returned after Kafka confirms publication, with up to 10 seconds waiting for each send future after the producer's send call. Kafka's own metadata/buffer blocking can add time before that wait. Publication failure/interruption/timeout returns 503. A timeout can occur after a broker accepted an event, and a batch can partially publish before a later send fails. Retrying may duplicate logs/alerts; trackingId is not an idempotency key or processing-status API. HTTP success does not mean database persistence or AI investigation has completed. Transient consumer database failures propagate to Kafka's existing retry/recovery handler. Explicit malformed-record DLQ sends must complete before the consumer proceeds. Durable idempotency, recovery verification, asynchronous investigation jobs, and late-evidence refresh remain reliability work.
+
+## Trust and rollout boundary
+
+Envelope ownership is trusted broker metadata, not a cryptographic signature. Kafka must be private and producer access restricted to trusted application components; anyone allowed to publish arbitrary envelopes can assert workspace IDs. Local prototype broker settings do not establish production broker authentication/ACLs/TLS. Do not expose the broker to customer producers or the public internet. Production infrastructure hardening is still required.
+
+V5 supplies workspace-owned log/deployment persistence and scoped correlation, timeline/export, and Redis incident contexts. Upgrade consumers/readers before enabling new envelope-producing nodes, with old writers stopped/drained; old consumers cannot safely interpret the new format. Use a coordinated rollout, not mixed application versions. Historical AI provenance and tenant-specific GitHub integrations remain separate review items. No real development/production database migration or infrastructure deployment was performed by these tests.
+
+Other pending tasks: deployment ingestion, key usage metrics/rate limits/expiry, workspace deletion lifecycle, and eventual removal of the retired workspace.api_key column.
 
 ## Verification
 
-IngestionKeyIntegrationTest checks independent keys, one-time disclosure, hash-only storage, metadata redaction, cross-workspace/role restrictions, validation, idempotent revocation, continued validity of another key, and legacy rejection. IngestionKeyMigrationIntegrationTest upgrades an independent disposable schema from V3 to V4, checks Unicode hash compatibility, preserves an eligible credential as a hash, excludes legacy/short values, and retires plaintext storage. Frontend auth-storage tests verify that legacy ingestion secrets are removed from stored profiles while login remains intact.
+IngestionKeyIntegrationTest checks independent keys, one-time disclosure, hash-only storage, metadata redaction, cross-workspace/role restrictions, validation, idempotent revocation, continued validity of another key, and legacy rejection. IngestionKeyMigrationIntegrationTest upgrades an independent disposable schema from V3 to V4, checks Unicode hash compatibility, preserves an eligible credential as a hash, excludes legacy/short values, and retires plaintext storage. Frontend auth-storage tests verify that legacy ingestion secrets are removed from stored profiles while login remains intact. TenantIngestionIntegrationTest follows key creation through authenticated webhooks, Kafka consumers, tenant persistence, deduplication, correlation, AI summary, and Redis. It checks forged ownership fields, same-service overlapping workspaces, raw/global legacy quarantine, revocation, credential separation, batch validation, and maximum-length names. IngestionEventCodecTest rejects unsupported/malformed/unknown-owner envelopes and preserves raw-event quarantine. Publisher/consumer unit regressions verify publication failure responses, retryable persistence failures, and required explicit DLQ completion.

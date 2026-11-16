@@ -1,8 +1,13 @@
 package com.roottrace.ingestion.controller;
 
+import jakarta.validation.Validator;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.roottrace.infrastructure.kafka.EventPublisher;
+import com.roottrace.ingestion.service.WebhookEventPublisher;
+import com.roottrace.security.IngestionIdentity;
+import org.springframework.security.core.Authentication;
 import com.roottrace.infrastructure.kafka.KafkaTopicConfig;
 import com.roottrace.ingestion.dto.IngestionResponse;
 import com.roottrace.ingestion.dto.RawLogRequest;
@@ -18,38 +23,41 @@ import java.util.UUID;
 @CrossOrigin(origins = "*")
 public class LogWebhookController {
 
-    private final EventPublisher eventPublisher;
-    private final ObjectMapper objectMapper;
+    private final WebhookEventPublisher eventPublisher;
+    private final Validator validator;
 
-    public LogWebhookController(EventPublisher eventPublisher, ObjectMapper objectMapper) {
+    public LogWebhookController(WebhookEventPublisher eventPublisher, Validator validator) {
         this.eventPublisher = eventPublisher;
-        this.objectMapper = objectMapper;
+        this.validator = validator;
     }
 
     @PostMapping
-    public ResponseEntity<IngestionResponse> ingestSingleLog(@RequestBody @Valid RawLogRequest request) throws JsonProcessingException {
+    public ResponseEntity<IngestionResponse> ingestSingleLog(@RequestBody @Valid RawLogRequest request, Authentication authentication) throws JsonProcessingException {
         UUID trackingId = UUID.randomUUID();
-        String payloadJson = objectMapper.writeValueAsString(request);
 
         eventPublisher.publish(
-                KafkaTopicConfig.RAW_LOGS_TOPIC,
+                KafkaTopicConfig.RAW_LOGS_TOPIC, "LOG", IngestionIdentity.requireWorkspace(authentication),
                 request.serviceName(),
-                payloadJson
+                request
         );
 
         return ResponseEntity.accepted().body(IngestionResponse.accepted(trackingId));
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<IngestionResponse> ingestBatchLogs(@RequestBody @Valid List<@Valid RawLogRequest> batch) throws JsonProcessingException {
+    public ResponseEntity<IngestionResponse> ingestBatchLogs(@RequestBody @Valid List<@Valid RawLogRequest> batch, Authentication authentication) throws JsonProcessingException {
         UUID trackingId = UUID.randomUUID();
 
+        // Validate the entire batch before the first publication.
+        if (batch.isEmpty() || batch.size() > 500 || batch.stream().anyMatch(item -> item == null || !validator.validate(item).isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid log batch (1-500 valid logs required)");
+        }
         for (RawLogRequest logRequest : batch) {
-            String payloadJson = objectMapper.writeValueAsString(logRequest);
+
             eventPublisher.publish(
-                    KafkaTopicConfig.RAW_LOGS_TOPIC,
+                    KafkaTopicConfig.RAW_LOGS_TOPIC, "LOG", IngestionIdentity.requireWorkspace(authentication),
                     logRequest.serviceName(),
-                    payloadJson
+                    logRequest
             );
         }
 

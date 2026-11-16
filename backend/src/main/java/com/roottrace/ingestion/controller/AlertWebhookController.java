@@ -1,8 +1,12 @@
 package com.roottrace.ingestion.controller;
 
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.roottrace.infrastructure.kafka.EventPublisher;
+import com.roottrace.ingestion.service.WebhookEventPublisher;
+import com.roottrace.security.IngestionIdentity;
+import org.springframework.security.core.Authentication;
 import com.roottrace.infrastructure.kafka.KafkaTopicConfig;
 import com.roottrace.ingestion.dto.AlertWebhookRequest;
 import com.roottrace.ingestion.dto.IngestionResponse;
@@ -19,19 +23,20 @@ import java.util.UUID;
 @CrossOrigin(origins = "*")
 public class AlertWebhookController {
 
-    private final EventPublisher eventPublisher;
-    private final ObjectMapper objectMapper;
+    private final WebhookEventPublisher eventPublisher;
 
-    public AlertWebhookController(EventPublisher eventPublisher, ObjectMapper objectMapper) {
+    public AlertWebhookController(WebhookEventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
-        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/{source}")
     public ResponseEntity<IngestionResponse> ingestAlert(
             @PathVariable String source,
-            @RequestBody @Valid AlertWebhookRequest request) throws JsonProcessingException {
+            @RequestBody @Valid AlertWebhookRequest request, Authentication authentication) throws JsonProcessingException {
 
+        if (source.isBlank() || source.length() > 64) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid alert source");
+        }
         UUID trackingId = UUID.randomUUID();
 
         Map<String, Object> normalizedPayload = new HashMap<>();
@@ -43,12 +48,10 @@ public class AlertWebhookController {
         normalizedPayload.put("triggeredAt", request.triggeredAt().toString());
         normalizedPayload.put("rawPayload", request.details() != null ? request.details() : Map.of());
 
-        String payloadJson = objectMapper.writeValueAsString(normalizedPayload);
-
         eventPublisher.publish(
-                KafkaTopicConfig.INCOMING_ALERTS_TOPIC,
+                KafkaTopicConfig.INCOMING_ALERTS_TOPIC, "ALERT", IngestionIdentity.requireWorkspace(authentication),
                 request.serviceName(),
-                payloadJson
+                normalizedPayload
         );
 
         return ResponseEntity.accepted().body(IngestionResponse.accepted(trackingId));

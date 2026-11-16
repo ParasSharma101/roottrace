@@ -1,5 +1,9 @@
 package com.roottrace.infrastructure.kafka.consumers;
 
+import com.roottrace.ingestion.service.IngestionEventCodec;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import java.time.DateTimeException;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roottrace.domain.model.Alert;
@@ -9,7 +13,7 @@ import com.roottrace.domain.model.SeverityLevel;
 import com.roottrace.domain.repository.AlertRepository;
 import com.roottrace.domain.repository.IncidentRepository;
 import com.roottrace.domain.repository.WorkspaceRepository;
-import com.roottrace.security.AuthDataSeeder;
+
 import com.roottrace.infrastructure.kafka.EventPublisher;
 import com.roottrace.infrastructure.kafka.KafkaTopicConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -35,6 +39,7 @@ public class AlertEventConsumer {
     private final WorkspaceRepository workspaceRepository;
     private final EventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
+    private final IngestionEventCodec codec;
     private final org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
 
     public AlertEventConsumer(IncidentRepository incidentRepository,
@@ -42,12 +47,14 @@ public class AlertEventConsumer {
                               AlertRepository alertRepository,
                               EventPublisher eventPublisher,
                               ObjectMapper objectMapper,
-                              org.springframework.context.ApplicationEventPublisher applicationEventPublisher) {
+                              org.springframework.context.ApplicationEventPublisher applicationEventPublisher,
+                              IngestionEventCodec codec) {
         this.incidentRepository = incidentRepository;
         this.workspaceRepository = workspaceRepository;
         this.alertRepository = alertRepository;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
+        this.codec = codec;
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
@@ -61,7 +68,8 @@ public class AlertEventConsumer {
         log.info("Processing alert event from topic [{}] key [{}]", record.topic(), record.key());
 
         try {
-            Map<String, Object> payload = objectMapper.readValue(record.value(), new TypeReference<>() {});
+            var decoded = codec.decode(record.value(), "ALERT");
+            Map<String, Object> payload = objectMapper.convertValue(decoded.payload(), new TypeReference<>() {});
 
             String source = (String) payload.getOrDefault("source", "Unknown");
             String serviceName = (String) payload.get("serviceName");
@@ -70,13 +78,18 @@ public class AlertEventConsumer {
             String triggeredAtStr = (String) payload.get("triggeredAt");
             Instant triggeredAt = triggeredAtStr != null ? Instant.parse(triggeredAtStr) : Instant.now();
 
+            if (serviceName == null || serviceName.isBlank() || serviceName.length() > 128
+                    || alertType == null || alertType.isBlank() || alertType.length() > 128
+                    || source == null || source.isBlank() || source.length() > 64) {
+                throw new IllegalArgumentException("Invalid alert payload");
+            }
             Object rawDetails = payload.get("rawPayload");
             String rawPayloadJson = rawDetails != null ? objectMapper.writeValueAsString(rawDetails) : "{}";
 
             // 1. Alert Storm Deduplication: Check if active incident already exists for this service in the last 15 mins
             Instant windowStart = Instant.now().minus(DEDUPLICATION_WINDOW_MINUTES, ChronoUnit.MINUTES);
             List<Incident> activeIncidents = incidentRepository.findActiveIncidentsForService(
-                    AuthDataSeeder.DEFAULT_WORKSPACE_ID,
+                    decoded.workspaceId(),
                     List.of(IncidentStatus.OPEN, IncidentStatus.INVESTIGATING),
                     serviceName,
                     windowStart
@@ -90,11 +103,11 @@ public class AlertEventConsumer {
             } else {
                 SeverityLevel severity = parseSeverity(severityStr);
                 String title = String.format("[Alert] %s: %s", serviceName, alertType);
+                if (title.length() > 255) title = title.substring(0, 255);
 
                 incident = new Incident(title, severity, IncidentStatus.OPEN);
-                // Until trusted workspace-aware ingestion is installed, unscoped
-                // events are quarantined, never attributed to an application tenant.
-                incident.setWorkspace(workspaceRepository.getReferenceById(AuthDataSeeder.DEFAULT_WORKSPACE_ID));
+                // Ownership comes from server metadata; historical raw events remain legacy.
+                incident.setWorkspace(workspaceRepository.getReferenceById(decoded.workspaceId()));
                 incident.setStartTime(triggeredAt);
                 incident = incidentRepository.save(incident);
                 log.info("Created new incident [{}] with severity [{}] for alert [{}]",
@@ -116,14 +129,14 @@ public class AlertEventConsumer {
                 ));
             }
 
-        } catch (Exception ex) {
+        } catch (JsonProcessingException | IllegalArgumentException | ClassCastException | DateTimeException ex) {
             log.error("Failed to process alert record at partition {} offset {}. Routing to DLQ: {}",
                     record.partition(), record.offset(), ex.getMessage());
             eventPublisher.publish(
                     KafkaTopicConfig.INCOMING_ALERTS_DLQ_TOPIC,
                     record.key(),
                     record.value()
-            );
+            ).join();
         }
     }
 
