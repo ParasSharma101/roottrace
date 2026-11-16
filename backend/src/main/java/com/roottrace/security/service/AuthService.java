@@ -10,6 +10,7 @@ import com.roottrace.security.AuthDataSeeder;
 import com.roottrace.security.JwtTokenProvider;
 import com.roottrace.security.UserRole;
 import com.roottrace.security.WorkspaceIdentity;
+import com.roottrace.security.WorkspaceAccessPolicy;
 import com.roottrace.security.dto.WorkspaceMembershipDto;
 import com.roottrace.domain.exception.ResourceNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
@@ -35,19 +36,22 @@ public class AuthService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final WorkspaceAccessPolicy accessPolicy;
 
     public AuthService(
             UserRepository userRepository,
             WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenProvider tokenProvider
+            JwtTokenProvider tokenProvider,
+            WorkspaceAccessPolicy accessPolicy
     ) {
         this.userRepository = userRepository;
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.accessPolicy = accessPolicy;
     }
 
     @Transactional
@@ -95,6 +99,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public List<WorkspaceMembershipDto> listWorkspaces(UUID userId) {
         return workspaceMemberRepository.findByUserId(userId).stream()
+                .filter(member -> accessPolicy.canAccess(member.getWorkspace()))
                 .map(member -> new WorkspaceMembershipDto(
                         member.getWorkspace().getId(), member.getWorkspace().getName(),
                         member.getWorkspace().getSlug(), member.getRole()))
@@ -106,6 +111,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthResponse selectWorkspace(UUID userId, UUID workspaceId) {
         WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .filter(membership -> accessPolicy.canAccess(membership.getWorkspace()))
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
         return response(member.getUser(), member);
     }

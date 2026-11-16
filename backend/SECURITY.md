@@ -29,7 +29,9 @@ Spring Boot and Next.js do not automatically load the repository-root `.env` whe
 
 `X-RootTrace-Key` is accepted only under `/api/v1/webhooks/`; it cannot authenticate workspace or other application requests. Credential comparisons use `MessageDigest.isEqual` on UTF-8 bytes. The emergency header is ignored outside explicitly enabled local development. Ordinary JWT role checks continue to apply to production requests.
 
-Workspace-session increment: roles are now resolved from current database membership rather than trusted JWT claims. Version 2 sessions identify the user and optional workspace; old-format tokens require fresh login. See [WORKSPACE_DESIGN.md](WORKSPACE_DESIGN.md). This does not yet isolate incident or telemetry queries by workspace.
+Workspace-session increment: roles are now resolved from current database membership rather than trusted JWT claims. Version 2 sessions identify the user and optional workspace; old-format tokens require fresh login. See [WORKSPACE_DESIGN.md](WORKSPACE_DESIGN.md). The incident API boundary builds on this context; whole-pipeline isolation remains unfinished.
+
+Incident-boundary increment: incident APIs now scope lists and object access to the selected workspace, and reject mismatched child links. Legacy workspace membership cannot establish a normal session, even with a previously issued token. Unscoped log/deployment timeline evidence is withheld outside legacy development demos. Production ingestion, background correlation/AI, and caches still need tenant scoping; this is not yet a complete isolation boundary for the whole system.
 
 ## Rotation and deployment limits
 

@@ -21,6 +21,11 @@ public class Workspace {
     @Column(name = "api_key", nullable = false, unique = true, length = 128)
     private String apiKey;
 
+    @Column(name = "is_legacy", nullable = false)
+    private boolean legacy;
+
+    public boolean isLegacy() { return legacy; }
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

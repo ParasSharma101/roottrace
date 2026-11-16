@@ -40,6 +40,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Autowired private ObjectMapper objectMapper;
     @Autowired private com.roottrace.security.service.AuthService authService;
     @Autowired private IncidentRepository incidentRepository;
+    @Autowired private com.roottrace.domain.repository.WorkspaceRepository workspaceRepository;
     @Autowired private HypothesisRepository hypothesisRepository;
     @Autowired private IncidentNoteRepository incidentNoteRepository;
 
@@ -171,6 +172,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
         String sreToken = authService.demoLogin(new DemoLoginRequest("SRE")).token();
 
         Incident inc = incidentRepository.save(new Incident("Test Incident SRE", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        inc.setWorkspace(workspaceRepository.getReferenceById(AuthDataSeeder.DEFAULT_WORKSPACE_ID));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Database pool exhaustion", BigDecimal.valueOf(0.95), HypothesisStatus.PENDING, "[]"));
 
         mockMvc.perform(post("/api/v1/incidents/{id}/hypotheses/{hypId}/verify", inc.getId(), hyp.getId())
@@ -187,7 +189,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     }
 
     @Test
-    @DisplayName("Emergency Break-Glass - should authenticate with Break-Glass header and allow admin operations")
+    @DisplayName("Development emergency header cannot bypass selected workspace identity")
     void testEmergencyBreakGlassAccess() throws Exception {
         Incident inc = incidentRepository.save(new Incident("Outage Incident", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Core router failure", BigDecimal.valueOf(0.99), HypothesisStatus.PENDING, "[]"));
@@ -196,11 +198,9 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
                         .header(BreakGlassAuthenticationFilter.BREAK_GLASS_HEADER, "roottrace_emergency_breakglass_token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("VERIFIED"));
+                .andExpect(status().isForbidden());
 
         List<IncidentNote> notes = incidentNoteRepository.findByIncidentIdOrderByCreatedAtAsc(inc.getId());
-        assertThat(notes).isNotEmpty();
-        assertThat(notes.getFirst().getAuthor()).isEqualTo("emergency-breakglass@roottrace.internal");
+        assertThat(notes).isEmpty();
     }
 }

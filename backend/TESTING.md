@@ -49,6 +49,8 @@ Integration fixtures use independent signing/ingestion keys rather than known de
 
 WorkspaceAuthenticationIntegrationTest checks account-only login, explicit switching, membership-only listing, roles in the selected workspace, permission changes without token renewal, removed membership, old-format rejection, and non-member selection. Production JWT tests now create actual users and memberships rather than relying on email/role claims alone. These API checks use MockMvc; they do not verify the browser interaction or incident/telemetry tenant isolation.
 
+IncidentTenantIsolationIntegrationTest covers the incident API ownership boundary, including foreign reads/exports/mutations, same-incident child links, authenticated audit authors, legacy membership rejection, and exclusion of unscoped timeline telemetry. LegacyWorkspaceMigrationIntegrationTest upgrades an independent disposable schema from V2 to V3 and verifies preservation/backfill without touching public-schema fixtures. These checks do not yet validate tenant-owned ingestion or background correlation.
+
 Testcontainers 2.0.5 is pinned for the current Docker daemon. Commons Lang and Commons IO are pinned in test scope to satisfy its Commons Compress dependency without changing application source or adding runtime dependencies.
 
 ## Docker startup failures

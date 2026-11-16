@@ -31,9 +31,9 @@ JWTs from the prior email/role format require a new login. The frontend now pres
 
 This step reuses users, workspaces, and workspace_members, whose unique (workspace_id, user_id) constraint already supports multiple memberships. No migration or existing data reassignment occurs in this increment. Checking membership on every request adds database reads; caching authorization is deferred to avoid stale permissions.
 
-## Database and pipeline plan — not yet implemented
+## Remaining database and pipeline work
 
-1. Introduce a reserved legacy workspace that normal signup, membership management, and credential issuance cannot access automatically. Define its enforced system status before migrating existing rows.
+1. Extend the legacy boundary described below to independently stored telemetry and unscoped queued events. Normal signup, membership management, and credential issuance must not grant automatic legacy access.
 2. Add workspace ownership to independently ingested roots: alerts, log events, and deployments. Make incident ownership mandatory once all writers supply it. Backfill unknown/untrusted prototype ownership into the legacy container, preserving records. Existing V2 backfills are not proof of ownership.
 3. Scope repository queries and indexes by workspace, service, and time. Use workspace plus event identity for deduplication/idempotency.
 4. Enforce same-workspace parent relationships with appropriate composite unique keys/foreign keys. Notes and hypotheses inherit ownership from their incident; linked hypotheses must belong to that same incident. PR/deployment ownership must remain consistent, with an explicit preservation path for existing orphan records.
@@ -43,10 +43,22 @@ This step reuses users, workspaces, and workspace_members, whose unique (workspa
 
 Use forward migrations; preserve V1/V2. Migration order must keep writes and constraints consistent. Do not impose NOT NULL constraints before ingestion/writers and fixtures supply ownership. No production data deletion or transfer is authorized by this plan.
 
+## Implemented increment: incident API and legacy boundary
+
+V3 marks the existing V2 default workspace (`00000000-0000-0000-0000-000000000001`) as `is_legacy=true` and moves currently unassigned incidents into it. Reusing that preservation container keeps existing foreign keys intact. Explicit assignments to other workspaces remain unchanged. Records and content are preserved. A workspace/start-time index supports scoped lists. Incident ownership remains nullable until all ingestion writers can supply trustworthy ownership; later unassigned writes are invisible to workspace API queries, rather than silently assigned to a tenant.
+
+The workspace access policy excludes legacy memberships from listing and selection outside explicit `dev & !prod`, and rejects pre-existing selected legacy tokens. Creating a new workspace never sets the legacy flag. Development demos retain access to their existing legacy container. Even a development emergency header cannot bypass the selected-workspace identity required by incident APIs.
+
+Every incident API supplies workspace ID explicitly to IncidentWorkspaceService. Lists use a workspace predicate; detail, timeline, status, notes, hypotheses, and both postmortem representations verify the owning incident first. Foreign/unknown object IDs return 404 before child content is assembled or modified. Hypothesis references must belong to the same incident, including note links. Audit authors come from the authenticated identity; request author fields are optional compatibility fields and are ignored. Status-change audit notes also record the authenticated author.
+
+Logs and deployments still lack tenant ownership. Until the ingestion/correlation migration supplies it, normal workspace timelines and postmortem timeline sections exclude those unscoped records and PRs reached through deployments. Explicitly accessible legacy development demos can still display them. This restriction deliberately avoids presenting globally matched telemetry as tenant-owned evidence. Incident-linked alerts, hypotheses, and notes remain available after the owner check; pre-existing AI text/citations and all background investigation paths still require the following pipeline work.
+
+The V2-to-V3 migration test uses an independent schema in a disposable PostgreSQL database to verify content preservation, legacy backfill, and retention of an explicitly assigned workspace. Cross-workspace API tests cover list/read/write/export denial, child-link validation, trusted audit authors, legacy rejection despite membership, and exclusion of unscoped timeline evidence.
+
 ## Explicit remaining limitations
 
-Incident repositories, telemetry, ingestion, correlation, and caches still lack complete tenant scoping. The existing migration-created default workspace has not yet been quarantined. Workspace selection is an authentication foundation, not complete data isolation, and this version must not be exposed as a multi-tenant production service. Invitations still immediately add existing users; acceptance, role management, session revocation, and workspace key lifecycle remain separate work.
+Incident APIs now enforce selected ownership, and the migration-created default workspace is excluded from normal sessions. Independently stored telemetry, ingestion, alert deduplication, background correlation/AI, and caches still lack complete tenant scoping. Their existing behavior can still affect investigation data and must be fixed before public multi-tenant use. Logs/deployments have not been assigned to a preservation workspace yet. Invitations still immediately add existing users; acceptance, role management, session revocation, and workspace key lifecycle remain separate work.
 
 ## Verification boundary
 
-Integration coverage checks explicit selection, membership-only listing, cross-workspace role differences, membership removal, live role changes, old-session rejection, and administrator-only integration-key responses. It does not prove incident/telemetry isolation, which will require dedicated regression tests during the following increments.
+Integration coverage checks explicit selection, membership-only listing, cross-workspace role differences, membership removal, live role changes, old-session rejection, and administrator-only integration-key responses. Incident API coverage is described above. Whole-pipeline isolation still requires dedicated ingestion/correlation regressions in the following increments.

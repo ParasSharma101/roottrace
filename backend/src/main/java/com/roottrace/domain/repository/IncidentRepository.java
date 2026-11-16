@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface IncidentRepository extends JpaRepository<Incident, UUID> {
+    java.util.Optional<Incident> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+    List<Incident> findByWorkspaceIdOrderByStartTimeDesc(UUID workspaceId);
     List<Incident> findByStatusOrderByStartTimeDesc(IncidentStatus status);
     List<Incident> findAllByOrderByStartTimeDesc();
 

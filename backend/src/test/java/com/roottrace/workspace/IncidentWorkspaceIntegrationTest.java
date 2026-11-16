@@ -31,7 +31,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@WithMockUser(username = "alice@roottrace.io", roles = {"SRE", "VIEWER"})
 class IncidentWorkspaceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private MockMvc mockMvc;
@@ -45,13 +44,37 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
     @Autowired private HypothesisRepository hypothesisRepository;
     @Autowired private IncidentNoteRepository incidentNoteRepository;
 
+    @Autowired private WorkspaceRepository workspaceRepository;
+    private Workspace selectedWorkspace;
+
+    @org.junit.jupiter.api.BeforeEach
+    void selectWorkspace() {
+        String unique = UUID.randomUUID().toString();
+        selectedWorkspace = workspaceRepository.save(new Workspace("Test", unique, "test-" + unique));
+        var identity = new com.roottrace.security.WorkspaceIdentity(UUID.randomUUID(), "alice@roottrace.io", "Alice",
+                selectedWorkspace.getId(), "ROLE_SRE");
+        var authorities = identity.roles().stream().map(org.springframework.security.core.authority.SimpleGrantedAuthority::new).toList();
+        org.springframework.security.test.context.TestSecurityContextHolder.setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(identity, null, authorities));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearWorkspace() {
+        org.springframework.security.test.context.TestSecurityContextHolder.clearContext();
+    }
+
+    private Incident saveIncident(Incident incident) {
+        incident.setWorkspace(selectedWorkspace);
+        return incidentRepository.save(incident);
+    }
+
     @Test
     @DisplayName("GET /api/v1/incidents - should list incidents with status and severity filters")
     void testListIncidentsWithFilters() throws Exception {
         String testService = "order-service-" + UUID.randomUUID();
 
-        Incident inc1 = incidentRepository.save(new Incident("[Alert] " + testService + ": High5xxRate", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
-        Incident inc2 = incidentRepository.save(new Incident("[Alert] " + testService + ": LatencySpike", SeverityLevel.SEV2, IncidentStatus.RESOLVED));
+        Incident inc1 = saveIncident(new Incident("[Alert] " + testService + ": High5xxRate", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        Incident inc2 = saveIncident(new Incident("[Alert] " + testService + ": LatencySpike", SeverityLevel.SEV2, IncidentStatus.RESOLVED));
 
         Alert alert1 = new Alert(inc1, "Datadog", "High5xxRate", testService, "{}", Instant.now());
         alertRepository.save(alert1);
@@ -84,7 +107,7 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
     @DisplayName("GET /api/v1/incidents/{id} - should return complete incident details")
     void testGetIncidentDetail() throws Exception {
         String testService = "auth-service-" + UUID.randomUUID();
-        Incident inc = incidentRepository.save(new Incident("[Alert] " + testService + ": AuthFailuresHigh", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        Incident inc = saveIncident(new Incident("[Alert] " + testService + ": AuthFailuresHigh", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
 
         alertRepository.save(new Alert(inc, "Datadog", "AuthFailuresHigh", testService, "{\"threshold\": 50}", Instant.now()));
 
@@ -122,7 +145,7 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
         String testService = "billing-service-" + UUID.randomUUID();
         Instant now = Instant.now();
 
-        Incident inc = incidentRepository.save(new Incident("[Alert] " + testService + ": DatabaseTimeout", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        Incident inc = saveIncident(new Incident("[Alert] " + testService + ": DatabaseTimeout", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
         inc.setStartTime(now);
         incidentRepository.save(inc);
 
@@ -185,15 +208,15 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
 
         mockMvc.perform(get("/api/v1/incidents/{id}/timeline", inc.getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(6))))
-                .andExpect(jsonPath("$[*].eventType", hasItems("DEPLOYMENT", "GITHUB_PR", "ALERT", "LOG_ERROR", "AI_HYPOTHESIS", "HUMAN_ACTION")));
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[*].eventType", hasItems("ALERT", "AI_HYPOTHESIS", "HUMAN_ACTION")));
     }
 
     @Test
     @DisplayName("POST /api/v1/incidents/{id}/hypotheses/{hypId}/verify and reject - should update status and create audit notes")
     void testVerifyAndRejectHypothesis() throws Exception {
         String testService = "payment-gateway-" + UUID.randomUUID();
-        Incident inc = incidentRepository.save(new Incident("[Alert] " + testService + ": PaymentDrop", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        Incident inc = saveIncident(new Incident("[Alert] " + testService + ": PaymentDrop", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
 
         Hypothesis hyp1 = hypothesisRepository.save(new Hypothesis(
                 inc,
@@ -244,7 +267,7 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
     @DisplayName("PATCH /api/v1/incidents/{id}/status and POST note - should update status and record notes")
     void testUpdateStatusAndAddNotes() throws Exception {
         String testService = "user-service-" + UUID.randomUUID();
-        Incident inc = incidentRepository.save(new Incident("[Alert] " + testService + ": CrashLoop", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        Incident inc = saveIncident(new Incident("[Alert] " + testService + ": CrashLoop", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
 
         // Add engineer note
         AddNoteRequest noteReq = new AddNoteRequest("dave@company.com", "Restarted deployment pods", null);
@@ -252,7 +275,7 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(noteReq)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.author").value("dave@company.com"))
+                .andExpect(jsonPath("$.author").value("alice@roottrace.io"))
                 .andExpect(jsonPath("$.note").value("Restarted deployment pods"));
 
         // Transition status to RESOLVED
@@ -273,7 +296,7 @@ class IncidentWorkspaceIntegrationTest extends com.roottrace.support.Integration
     @DisplayName("GET /api/v1/incidents/{id}/postmortem - should generate structured Markdown postmortem")
     void testGeneratePostmortem() throws Exception {
         String testService = "search-service-" + UUID.randomUUID();
-        Incident inc = incidentRepository.save(new Incident("[Alert] " + testService + ": ElasticsearchClusterDegraded", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        Incident inc = saveIncident(new Incident("[Alert] " + testService + ": ElasticsearchClusterDegraded", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
 
         alertRepository.save(new Alert(inc, "Prometheus", "ElasticsearchClusterDegraded", testService, "{}", Instant.now()));
 

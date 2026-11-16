@@ -49,8 +49,8 @@ public class IncidentWorkspaceService {
     }
 
     @Transactional(readOnly = true)
-    public List<IncidentSummaryResponse> listIncidents(IncidentStatus status, SeverityLevel severity, String serviceName) {
-        List<Incident> allIncidents = incidentRepository.findAllByOrderByStartTimeDesc();
+    public List<IncidentSummaryResponse> listIncidents(UUID workspaceId, IncidentStatus status, SeverityLevel severity, String serviceName) {
+        List<Incident> allIncidents = incidentRepository.findByWorkspaceIdOrderByStartTimeDesc(Objects.requireNonNull(workspaceId));
 
         return allIncidents.stream()
                 .filter(i -> status == null || i.getStatus() == status)
@@ -77,9 +77,8 @@ public class IncidentWorkspaceService {
     }
 
     @Transactional(readOnly = true)
-    public IncidentDetailResponse getIncident(UUID id) {
-        Incident incident = incidentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Incident not found with ID: " + id));
+    public IncidentDetailResponse getIncident(UUID workspaceId, UUID id) {
+        Incident incident = ownedIncident(workspaceId, id);
 
         List<Alert> alerts = alertRepository.findByIncidentIdOrderByTriggeredAtDesc(id);
         List<Hypothesis> hypotheses = hypothesisRepository.findByIncidentIdOrderByConfidenceScoreDesc(id);
@@ -123,9 +122,8 @@ public class IncidentWorkspaceService {
     }
 
     @Transactional(readOnly = true)
-    public List<TimelineEventDto> getTimeline(UUID id) {
-        Incident incident = incidentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Incident not found with ID: " + id));
+    public List<TimelineEventDto> getTimeline(UUID workspaceId, UUID id) {
+        Incident incident = ownedIncident(workspaceId, id);
 
         List<Alert> alerts = alertRepository.findByIncidentIdOrderByTriggeredAtDesc(id);
         String serviceName = resolveServiceName(incident, alerts);
@@ -138,8 +136,10 @@ public class IncidentWorkspaceService {
         List<TimelineEventDto> timeline = new ArrayList<>();
 
         // 1. Deployments & GitHub PRs
-        List<Deployment> deployments = deploymentRepository
-                .findByServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(serviceName, windowStart, windowEnd);
+        // Unscoped telemetry is usable only for the explicitly accessible legacy demo.
+        // Normal workspaces must wait for tenant-owned telemetry ingestion/queries.
+        List<Deployment> deployments = incident.getWorkspace().isLegacy() ? deploymentRepository
+                .findByServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(serviceName, windowStart, windowEnd) : List.of();
 
         for (Deployment deployment : deployments) {
             Map<String, Object> depMeta = new HashMap<>();
@@ -195,8 +195,8 @@ public class IncidentWorkspaceService {
         }
 
         // 3. Representative Error Logs (limit to top 15 to avoid timeline bloat)
-        List<LogEvent> errorLogs = logEventRepository
-                .findByServiceNameAndLogLevelAndTimestampBetweenOrderByTimestampDesc(serviceName, LogLevel.ERROR, windowStart, windowEnd);
+        List<LogEvent> errorLogs = incident.getWorkspace().isLegacy() ? logEventRepository
+                .findByServiceNameAndLogLevelAndTimestampBetweenOrderByTimestampDesc(serviceName, LogLevel.ERROR, windowStart, windowEnd) : List.of();
 
         Set<String> seenMessages = new HashSet<>();
         int logCount = 0;
@@ -268,13 +268,8 @@ public class IncidentWorkspaceService {
         return timeline;
     }
 
-    public HypothesisDetailDto verifyHypothesis(UUID incidentId, UUID hypothesisId, String author) {
-        Hypothesis hypothesis = hypothesisRepository.findById(hypothesisId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hypothesis not found with ID: " + hypothesisId));
-
-        if (!hypothesis.getIncident().getId().equals(incidentId)) {
-            throw new IllegalArgumentException("Hypothesis [" + hypothesisId + "] does not belong to Incident [" + incidentId + "]");
-        }
+    public HypothesisDetailDto verifyHypothesis(UUID workspaceId, UUID incidentId, UUID hypothesisId, String author) {
+        Hypothesis hypothesis = ownedHypothesis(workspaceId, incidentId, hypothesisId);
 
         hypothesis.setStatus(HypothesisStatus.VERIFIED);
         hypothesis = hypothesisRepository.save(hypothesis);
@@ -292,13 +287,8 @@ public class IncidentWorkspaceService {
         return toHypothesisDetailDto(hypothesis);
     }
 
-    public HypothesisDetailDto rejectHypothesis(UUID incidentId, UUID hypothesisId, String author, String reason) {
-        Hypothesis hypothesis = hypothesisRepository.findById(hypothesisId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hypothesis not found with ID: " + hypothesisId));
-
-        if (!hypothesis.getIncident().getId().equals(incidentId)) {
-            throw new IllegalArgumentException("Hypothesis [" + hypothesisId + "] does not belong to Incident [" + incidentId + "]");
-        }
+    public HypothesisDetailDto rejectHypothesis(UUID workspaceId, UUID incidentId, UUID hypothesisId, String author, String reason) {
+        Hypothesis hypothesis = ownedHypothesis(workspaceId, incidentId, hypothesisId);
 
         hypothesis.setStatus(HypothesisStatus.REJECTED);
         hypothesis = hypothesisRepository.save(hypothesis);
@@ -317,14 +307,12 @@ public class IncidentWorkspaceService {
         return toHypothesisDetailDto(hypothesis);
     }
 
-    public IncidentNoteDetailDto addNote(UUID incidentId, AddNoteRequest request) {
-        Incident incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Incident not found with ID: " + incidentId));
+    public IncidentNoteDetailDto addNote(UUID workspaceId, UUID incidentId, AddNoteRequest request) {
+        Incident incident = ownedIncident(workspaceId, incidentId);
 
         Hypothesis linkedHypothesis = null;
         if (request.hypothesisId() != null) {
-            linkedHypothesis = hypothesisRepository.findById(request.hypothesisId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Hypothesis not found with ID: " + request.hypothesisId()));
+            linkedHypothesis = ownedHypothesis(workspaceId, incidentId, request.hypothesisId());
         }
 
         IncidentNote note = new IncidentNote(incident, linkedHypothesis, request.author(), request.note());
@@ -333,9 +321,8 @@ public class IncidentWorkspaceService {
         return toIncidentNoteDetailDto(note);
     }
 
-    public IncidentDetailResponse updateStatus(UUID incidentId, IncidentStatus newStatus) {
-        Incident incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Incident not found with ID: " + incidentId));
+    public IncidentDetailResponse updateStatus(UUID workspaceId, UUID incidentId, IncidentStatus newStatus, String author) {
+        Incident incident = ownedIncident(workspaceId, incidentId);
 
         IncidentStatus oldStatus = incident.getStatus();
         incident.setStatus(newStatus);
@@ -351,24 +338,23 @@ public class IncidentWorkspaceService {
         IncidentNote note = new IncidentNote(
                 incident,
                 null,
-                "System",
+                author,
                 "Incident status transitioned from [" + oldStatus + "] to [" + newStatus + "]"
         );
         incidentNoteRepository.save(note);
 
         log.info("Incident [{}] status updated to [{}]", incidentId, newStatus);
-        return getIncident(incidentId);
+        return getIncident(workspaceId, incidentId);
     }
 
     @Transactional(readOnly = true)
-    public PostmortemResponse generatePostmortem(UUID incidentId) {
-        Incident incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Incident not found with ID: " + incidentId));
+    public PostmortemResponse generatePostmortem(UUID workspaceId, UUID incidentId) {
+        Incident incident = ownedIncident(workspaceId, incidentId);
 
         List<Alert> alerts = alertRepository.findByIncidentIdOrderByTriggeredAtDesc(incidentId);
         List<Hypothesis> hypotheses = hypothesisRepository.findByIncidentIdOrderByConfidenceScoreDesc(incidentId);
         List<IncidentNote> notes = incidentNoteRepository.findByIncidentIdOrderByCreatedAtAsc(incidentId);
-        List<TimelineEventDto> timeline = getTimeline(incidentId);
+        List<TimelineEventDto> timeline = getTimeline(workspaceId, incidentId);
 
         String serviceName = resolveServiceName(incident, alerts);
 
@@ -465,6 +451,17 @@ public class IncidentWorkspaceService {
                 .append(UTC_FORMATTER.format(Instant.now())).append("_\n");
 
         return new PostmortemResponse(incidentId, incident.getTitle(), md.toString(), Instant.now());
+    }
+
+    private Incident ownedIncident(UUID workspaceId, UUID incidentId) {
+        return incidentRepository.findByIdAndWorkspaceId(incidentId, Objects.requireNonNull(workspaceId))
+                .orElseThrow(() -> new ResourceNotFoundException("Incident not found"));
+    }
+
+    private Hypothesis ownedHypothesis(UUID workspaceId, UUID incidentId, UUID hypothesisId) {
+        ownedIncident(workspaceId, incidentId);
+        return hypothesisRepository.findByIdAndIncidentId(hypothesisId, incidentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hypothesis not found"));
     }
 
     private String resolveServiceName(Incident incident, List<Alert> alerts) {
