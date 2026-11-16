@@ -12,7 +12,6 @@ export interface AuthUser {
   workspaceId?: string | null;
   workspaceName?: string | null;
   workspaceSlug?: string | null;
-  apiKey?: string | null;
   isBreakGlass?: boolean;
 }
 
@@ -62,7 +61,12 @@ export function getAuthUser(): AuthUser | null {
   const userJson = localStorage.getItem(USER_KEY);
   if (!userJson) return null;
   try {
-    return JSON.parse(userJson);
+    const user = JSON.parse(userJson) as AuthUser & { apiKey?: unknown };
+    if ('apiKey' in user) {
+      delete user.apiKey;
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+    return user;
   } catch {
     return null;
   }
@@ -70,8 +74,10 @@ export function getAuthUser(): AuthUser | null {
 
 export function setAuthSession(user: AuthUser): void {
   if (typeof window === 'undefined') return;
+  const safeUser = { ...user } as AuthUser & { apiKey?: unknown };
+  delete safeUser.apiKey;
   localStorage.setItem(TOKEN_KEY, user.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem(USER_KEY, JSON.stringify(safeUser));
   window.dispatchEvent(new Event('auth-change'));
 }
 
@@ -109,7 +115,6 @@ export async function loginWithCredentials(email: string, password: string): Pro
     workspaceId: data.workspaceId,
     workspaceName: data.workspaceName,
     workspaceSlug: data.workspaceSlug,
-    apiKey: data.apiKey,
     isBreakGlass: false,
   };
 
@@ -140,7 +145,6 @@ export async function signupUser(fullName: string, email: string, password: stri
     workspaceId: data.workspaceId,
     workspaceName: data.workspaceName,
     workspaceSlug: data.workspaceSlug,
-    apiKey: data.apiKey,
     isBreakGlass: false,
   };
 
@@ -171,7 +175,6 @@ export async function loginDemoRole(role: 'SRE' | 'VIEWER' | 'ADMIN'): Promise<A
     workspaceId: data.workspaceId,
     workspaceName: data.workspaceName,
     workspaceSlug: data.workspaceSlug,
-    apiKey: data.apiKey,
     isBreakGlass: false,
   };
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
+import { IngestionKeysPanel } from '@/components/IngestionKeysPanel';
 import { getWorkspaceDetails, inviteWorkspaceMember, WorkspaceDetails } from '@/lib/api';
 import { getAuthUser } from '@/lib/auth';
 import { Key, Users, Copy, Check, UserPlus, Shield, UserCheck, Eye, Terminal, Sparkles, Building } from 'lucide-react';
@@ -9,8 +10,6 @@ import { Key, Users, Copy, Check, UserPlus, Shield, UserCheck, Eye, Terminal, Sp
 export default function SettingsPage() {
   const [workspace, setWorkspace] = useState<WorkspaceDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copiedKey, setCopiedKey] = useState(false);
-  const [copiedCurl, setCopiedCurl] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('ROLE_SRE');
   const [inviting, setInviting] = useState(false);
@@ -34,23 +33,6 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchWorkspace();
   }, []);
-
-  const handleCopyKey = () => {
-    if (!workspace?.apiKey) return;
-    navigator.clipboard.writeText(workspace.apiKey);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
-
-  const curlSnippet = workspace?.apiKey
-    ? `curl -X POST http://localhost:8080/api/v1/webhooks/alerts/datadog \\\n  -H "Content-Type: application/json" \\\n  -H "X-RootTrace-Key: ${workspace.apiKey}" \\\n  -d '{"serviceName": "payment-api", "alertType": "HighLatency", "severity": "SEV1", "triggeredAt": "'$(date -u +%FT%TZ)'"}'`
-    : '';
-
-  const handleCopyCurl = () => {
-    navigator.clipboard.writeText(curlSnippet);
-    setCopiedCurl(true);
-    setTimeout(() => setCopiedCurl(false), 2000);
-  };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,61 +77,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left 2 Cols: Ingestion Key & Webhook setup */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Ingestion Key Card */}
-              <div className="p-6 rounded-2xl bg-[#0b101b] border border-slate-800 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Key className="w-4 h-4 text-emerald-400" />
-                    <h2 className="text-sm font-semibold text-slate-200">
-                      Telemetry Ingestion API Key
-                    </h2>
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Active
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mb-4">
-                  Pass this secret header (<code className="text-indigo-300">X-RootTrace-Key</code>) in all incoming webhook and log stream payloads from Datadog, PagerDuty, or FluentBit.
-                </p>
-
-                <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800 p-2.5 rounded-xl font-mono text-xs text-slate-300">
-                  <span className="flex-1 truncate select-all">{workspace?.apiKey || '••••••••••••••••'}</span>
-                  <button
-                    onClick={handleCopyKey}
-                    disabled={!workspace?.apiKey}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-sans transition-colors"
-                  >
-                    {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                    <span>{copiedKey ? 'Copied!' : 'Copy Key'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Integration Curl Card */}
-              <div className="p-6 rounded-2xl bg-[#0b101b] border border-slate-800 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-indigo-400" />
-                    <h2 className="text-sm font-semibold text-slate-200">
-                      Webhook Ingestion Quickstart
-                    </h2>
-                  </div>
-                  <button
-                    onClick={handleCopyCurl}
-                    disabled={!workspace?.apiKey}
-                    className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                  >
-                    {copiedCurl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCurl ? 'Copied' : 'Copy cURL'}</span>
-                  </button>
-                </div>
-                <p className="text-xs text-slate-400 mb-3">
-                  Test your real-time incident pipeline immediately from your terminal or CI/CD runner:
-                </p>
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-900 font-mono text-[11px] text-slate-300 overflow-x-auto whitespace-pre">
-                  {curlSnippet}
-                </div>
-              </div>
+              <IngestionKeysPanel isAdmin={!!isAdmin} />
             </div>
 
             {/* Right Col: Team Members & Invites */}

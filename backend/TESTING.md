@@ -53,6 +53,8 @@ IncidentTenantIsolationIntegrationTest covers the incident API ownership boundar
 
 Testcontainers 2.0.5 is pinned for the current Docker daemon. Commons Lang and Commons IO are pinned in test scope to satisfy its Commons Compress dependency without changing application source or adding runtime dependencies.
 
+Named-key tests: IngestionKeyIntegrationTest covers lifecycle, access boundaries, metadata-only reads, and legacy rejection. IngestionKeyMigrationIntegrationTest verifies V3-to-V4 hash import and plaintext retirement in a separate disposable schema. Run `npm.cmd run test:auth-storage` from frontend for the client storage cleanup regression tests. These checks do not yet prove tenant-key webhook ingestion, which remains gated.
+
 ## Docker startup failures
 
 If many tests report `NoClassDefFoundError: Could not initialize class IntegrationTestSupport`, inspect the first Testcontainers provider error in the Surefire XML/log. A failed static container initializer causes subsequent test classes to fail too; the class may be present and compiled correctly.

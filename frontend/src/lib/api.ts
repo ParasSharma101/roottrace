@@ -163,3 +163,27 @@ export async function inviteWorkspaceMember(email: string, role: string): Promis
     body: JSON.stringify({ email, role }),
   });
 }
+
+export interface IngestionKey {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+export async function listIngestionKeys(): Promise<IngestionKey[]> {
+  return fetchJson(`${API_BASE}/workspace/ingestion-keys`);
+}
+
+export async function createIngestionKey(name: string): Promise<{ key: IngestionKey; secret: string }> {
+  return fetchJson(`${API_BASE}/workspace/ingestion-keys`, { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export async function revokeIngestionKey(id: string): Promise<void> {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}/workspace/ingestion-keys/${encodeURIComponent(id)}`, {
+    method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+  });
+  if (!response.ok) throw new Error('Unable to revoke this key');
+}

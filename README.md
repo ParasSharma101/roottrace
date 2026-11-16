@@ -139,6 +139,8 @@ Password login now leads to explicit workspace selection; signup selects the wor
 
 Incident APIs now enforce selected workspace ownership, and V3 preserves unassigned prototype incidents in the legacy workspace. Normal workspace timelines omit unscoped log/deployment evidence until tenant-aware ingestion is implemented. Local development demos retain that evidence. Background ingestion/correlation isolation remains unfinished.
 
+Workspace administrators can manage multiple named credentials in Settings, with one-time secret display and independent revocation. V4 retires the old plaintext workspace-key field. Named credentials are not yet enabled for webhook ingestion; see [the credential contract and integration gate](backend/INGESTION_KEYS.md).
+
 ### 4. Run Frontend Dashboard
 ```bash
 cd frontend

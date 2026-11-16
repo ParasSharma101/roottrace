@@ -59,6 +59,8 @@ The V2-to-V3 migration test uses an independent schema in a disposable PostgreSQ
 
 ## Explicit remaining limitations
 
+Named key management now supports multiple hashed credentials per workspace with one-time disclosure and independent revocation; old plaintext workspace keys are retired by V4. See [INGESTION_KEYS.md](INGESTION_KEYS.md). These credentials are intentionally not yet wired into webhook authentication, pending the tenant-aware event/consumer path.
+
 Incident APIs now enforce selected ownership, and the migration-created default workspace is excluded from normal sessions. Unscoped alerts are quarantined and their deduplication is restricted to legacy incidents. Independently stored telemetry, workspace-owned ingestion, background correlation/AI, and caches still lack complete tenant scoping and must be fixed before public multi-tenant use. Logs/deployments have not been assigned to a preservation workspace yet. Invitations still immediately add existing users; acceptance, role management, session revocation, and workspace key lifecycle remain separate work.
 
 ## Verification boundary

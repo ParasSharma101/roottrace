@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:auth-storage": "node --test tests/auth-storage.test.cjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

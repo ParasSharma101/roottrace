@@ -35,6 +35,8 @@ Incident-boundary increment: incident APIs now scope lists and object access to 
 
 ## Rotation and deployment limits
 
+Named workspace credentials now use hash-only storage and one-time disclosure through admin management APIs. Profile/workspace responses no longer return a plaintext ingestion key. V4 imports eligible prior non-legacy credentials as hashes and retires the old column's contents. See [INGESTION_KEYS.md](INGESTION_KEYS.md) for compatibility and the gate on enabling these keys for webhooks.
+
 Replacing the signing secret invalidates tokens signed with the previous secret after all backend instances use the new key. Restart/roll out all instances together; this step does not implement multiple-key rotation or session revocation. Replace the ingestion key separately and update senders. Previously seeded demo accounts still exist and can use password login until explicitly removed or disabled. Do not migrate development credentials/accounts into production.
 
 This decision does not complete workspace authorization, workspace ingestion keys, account/session lifecycle, identity-based recovery, or deployment hardening. The existing V2 migration still creates a development workspace, and non-Compose database configuration still has development defaults. These need separate remediation before production use.

@@ -72,7 +72,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
                 .andExpect(jsonPath("$.fullName").value("Alex Founder"))
                 .andExpect(jsonPath("$.roles[0]").value("ROLE_ADMIN"))
                 .andExpect(jsonPath("$.workspaceName").value("Acme Payments Prod"))
-                .andExpect(jsonPath("$.apiKey").value(org.hamcrest.Matchers.startsWith("rt_live_")));
+                .andExpect(jsonPath("$.apiKey").isEmpty());
     }
 
     @Test

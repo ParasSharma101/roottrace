@@ -69,7 +69,7 @@ public class WorkspaceController {
                 ws.getId(),
                 ws.getName(),
                 ws.getSlug(),
-                identity.roles().contains("ROLE_ADMIN") ? ws.getApiKey() : null,
+                null,
                 memberDtos
         ));
     }

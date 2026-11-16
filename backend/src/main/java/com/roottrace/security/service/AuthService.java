@@ -70,7 +70,7 @@ public class AuthService {
             slug = baseSlug + "-" + counter++;
         }
 
-        String apiKey = "rt_live_" + UUID.randomUUID().toString().replace("-", "");
+        String apiKey = "retired_" + UUID.randomUUID().toString().replace("-", "");
 
         Workspace workspace = new Workspace(request.workspaceName().trim(), slug, apiKey);
         workspace = workspaceRepository.save(workspace);
@@ -141,7 +141,7 @@ public class AuthService {
         Workspace ws = member == null ? null : member.getWorkspace();
         return new UserProfileDto(user.getId(), user.getEmail(), user.getFullName(), identity.roles(),
                 ws == null ? null : ws.getId(), ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
-                member != null && "ROLE_ADMIN".equals(member.getRole()) ? ws.getApiKey() : null, false);
+                null, false);
     }
 
     private AuthResponse response(User user, WorkspaceMember member) {
@@ -151,6 +151,6 @@ public class AuthService {
         return new AuthResponse(tokenProvider.generateToken(user.getId(), identity.workspaceId()),
                 user.getId(), user.getEmail(), user.getFullName(), identity.roles(), identity.workspaceId(),
                 ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
-                member != null && "ROLE_ADMIN".equals(member.getRole()) ? ws.getApiKey() : null);
+                null);
     }
 }
