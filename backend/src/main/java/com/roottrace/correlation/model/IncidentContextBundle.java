@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record IncidentContextBundle(
+        UUID workspaceId,
         UUID incidentId,
         String incidentTitle,
         SeverityLevel severityLevel,

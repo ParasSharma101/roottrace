@@ -23,6 +23,7 @@ class AiInvestigationServiceIntegrationTest extends com.roottrace.support.Integr
 
     @Autowired private AiInvestigationService aiInvestigationService;
     @Autowired private IncidentRepository incidentRepository;
+    @Autowired private WorkspaceRepository workspaceRepository;
     @Autowired private AlertRepository alertRepository;
     @Autowired private DeploymentRepository deploymentRepository;
     @Autowired private GitHubPRRepository gitHubPRRepository;
@@ -37,6 +38,7 @@ class AiInvestigationServiceIntegrationTest extends com.roottrace.support.Integr
         // 1. Incident and Alert: DatabaseConnectionExhaustion
         Incident incident = new Incident("[Alert] " + serviceName + ": DatabaseConnectionExhaustion", SeverityLevel.SEV1, IncidentStatus.OPEN);
         incident.setStartTime(now);
+        incident.setWorkspace(workspaceRepository.getReferenceById(Workspace.LEGACY_WORKSPACE_ID));
         incident = incidentRepository.save(incident);
 
         Alert alert = new Alert("Datadog", "DatabaseConnectionExhaustion", serviceName, "{\"pool_exhausted\": true}", now);
@@ -99,6 +101,7 @@ class AiInvestigationServiceIntegrationTest extends com.roottrace.support.Integr
         // 1. Incident and Alert: CheckoutFlowLatencyHigh
         Incident incident = new Incident("[Alert] " + serviceName + ": CheckoutFlowLatencyHigh", SeverityLevel.SEV1, IncidentStatus.OPEN);
         incident.setStartTime(now);
+        incident.setWorkspace(workspaceRepository.getReferenceById(Workspace.LEGACY_WORKSPACE_ID));
         incident = incidentRepository.save(incident);
 
         Alert alert = new Alert("PagerDuty", "CheckoutFlowLatencyHigh", serviceName, "{\"latency_p99\": \"5200ms\"}", now);

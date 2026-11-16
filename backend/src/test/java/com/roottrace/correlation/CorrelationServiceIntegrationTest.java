@@ -25,6 +25,7 @@ class CorrelationServiceIntegrationTest extends com.roottrace.support.Integratio
 
     @Autowired private CorrelationService correlationService;
     @Autowired private IncidentRepository incidentRepository;
+    @Autowired private WorkspaceRepository workspaceRepository;
     @Autowired private AlertRepository alertRepository;
     @Autowired private DeploymentRepository deploymentRepository;
     @Autowired private GitHubPRRepository gitHubPRRepository;
@@ -39,6 +40,7 @@ class CorrelationServiceIntegrationTest extends com.roottrace.support.Integratio
         // 1. Create Incident & Alert
         Incident incident = new Incident("[Alert] " + serviceName + ": LatencyThresholdExceeded", SeverityLevel.SEV1, IncidentStatus.OPEN);
         incident.setStartTime(alertTime);
+        incident.setWorkspace(workspaceRepository.getReferenceById(Workspace.LEGACY_WORKSPACE_ID));
         incident = incidentRepository.save(incident);
 
         Alert alert = new Alert("Datadog", "LatencyThresholdExceeded", serviceName, "{\"p99\": \"5200ms\"}", alertTime);

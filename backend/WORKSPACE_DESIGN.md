@@ -24,14 +24,14 @@ Account-only tokens can use authenticated account endpoints, including workspace
 | GET /api/v1/auth/workspaces | Only the current user's memberships; no integration keys. |
 | POST /api/v1/auth/select-workspace | Validated workspaceId; token/profile for that membership, or 404. |
 | GET /api/v1/auth/me | Current account and selected workspace; current role. |
-| GET /api/v1/workspace | Selected workspace and members; no fallback. Integration key is returned only to ADMIN. |
+| GET /api/v1/workspace | Selected workspace and members; no fallback. Legacy apiKey field is always null; named key management is ADMIN-only. |
 | POST /api/v1/workspace/invites | Requires ADMIN in the selected workspace. Invitation acceptance remains separate unfinished work. |
 
 JWTs from the prior email/role format require a new login. The frontend now presents a workspace picker after password login and offers switching from the navbar. A successful switch navigates through a full page load to discard previously mounted data. Other tabs observing a session-token change leave their old screen and return to workspace selection (or login on logout). Account-only dashboard visits redirect to selection.
 
 This step reuses users, workspaces, and workspace_members, whose unique (workspace_id, user_id) constraint already supports multiple memberships. No migration or existing data reassignment occurs in this increment. Checking membership on every request adds database reads; caching authorization is deferred to avoid stale permissions.
 
-## Remaining database and pipeline work
+## Database and pipeline rollout plan
 
 1. Extend the legacy boundary described below to independently stored telemetry and unscoped queued events. Normal signup, membership management, and credential issuance must not grant automatic legacy access.
 2. Add workspace ownership to independently ingested roots: alerts, log events, and deployments. Make incident ownership mandatory once all writers supply it. Backfill unknown/untrusted prototype ownership into the legacy container, preserving records. Existing V2 backfills are not proof of ownership.
@@ -53,7 +53,7 @@ The interim alert consumer explicitly quarantines new unscoped alerts in that sa
 
 Every incident API supplies workspace ID explicitly to IncidentWorkspaceService. Lists use a workspace predicate; detail, timeline, status, notes, hypotheses, and both postmortem representations verify the owning incident first. Foreign/unknown object IDs return 404 before child content is assembled or modified. Hypothesis references must belong to the same incident, including note links. Audit authors come from the authenticated identity; request author fields are optional compatibility fields and are ignored. Status-change audit notes also record the authenticated author.
 
-Logs and deployments still lack tenant ownership. Until the ingestion/correlation migration supplies it, normal workspace timelines and postmortem timeline sections exclude those unscoped records and PRs reached through deployments. Explicitly accessible legacy development demos can still display them. This restriction deliberately avoids presenting globally matched telemetry as tenant-owned evidence. Incident-linked alerts, hypotheses, and notes remain available after the owner check; pre-existing AI text/citations and all background investigation paths still require the following pipeline work.
+The initial incident boundary excluded unscoped logs/deployments from normal workspace timelines. V5 now gives those records explicit ownership and replaces that temporary suppression with workspace-scoped queries, as described below. Incident-linked alerts, hypotheses, and notes remain available after the owner check. Previously persisted AI summaries/citations are not rewritten by this migration and need a separate provenance review before a production data rollout.
 
 The V2-to-V3 migration test uses an independent schema in a disposable PostgreSQL database to verify content preservation, legacy backfill, and retention of an explicitly assigned workspace. Cross-workspace API tests cover list/read/write/export denial, child-link validation, trusted audit authors, legacy rejection despite membership, and exclusion of unscoped timeline evidence.
 
@@ -61,8 +61,20 @@ The V2-to-V3 migration test uses an independent schema in a disposable PostgreSQ
 
 Named key management now supports multiple hashed credentials per workspace with one-time disclosure and independent revocation; old plaintext workspace keys are retired by V4. See [INGESTION_KEYS.md](INGESTION_KEYS.md). These credentials are intentionally not yet wired into webhook authentication, pending the tenant-aware event/consumer path.
 
-Incident APIs now enforce selected ownership, and the migration-created default workspace is excluded from normal sessions. Unscoped alerts are quarantined and their deduplication is restricted to legacy incidents. Independently stored telemetry, workspace-owned ingestion, background correlation/AI, and caches still lack complete tenant scoping and must be fixed before public multi-tenant use. Logs/deployments have not been assigned to a preservation workspace yet. Invitations still immediately add existing users; acceptance, role management, session revocation, and workspace key lifecycle remain separate work.
+Incident APIs enforce selected ownership, and the migration-created legacy workspace is excluded from normal sessions. Unscoped alerts are quarantined and their deduplication is restricted to legacy incidents. Logs/deployments, context correlation, timeline/export queries, and Redis incident contexts now carry workspace scope. Authenticated ownership propagation through webhooks/Kafka/consumers is still pending; named keys remain disabled for ingestion. GitHubService is currently unused by production callers and still requires tenant/repository-scoped caching and tenant-specific integration credentials before connecting it. Invitations still immediately add existing users; acceptance, role management, session revocation, and further key lifecycle controls remain separate work. Public multi-tenant use is not ready.
 
 ## Verification boundary
 
-Integration coverage checks explicit selection, membership-only listing, cross-workspace role differences, membership removal, live role changes, old-session rejection, and administrator-only integration-key responses. Incident API coverage is described above. Whole-pipeline isolation still requires dedicated ingestion/correlation regressions in the following increments.
+Integration coverage checks explicit selection, membership-only listing, cross-workspace role differences, membership removal, live role changes, old-session rejection, and administrator-only integration-key responses. Incident API coverage is described above. Evidence/correlation isolation coverage is described below. Whole-pipeline isolation still requires authenticated ingestion regressions in the following increment.
+
+## Implemented increment: evidence and incident-context ownership
+
+V5 adds mandatory workspace foreign keys to log_events and deployments, backfills all historical rows into the legacy preservation workspace, and adds workspace/service/time indexes. It preserves log content, deployment metadata, IDs, and deployment-linked PRs. SQL has no default ownership; inserts without a workspace fail. Existing application constructors explicitly initialize unscoped telemetry to legacy quarantine until authenticated writers replace that value. Ownership is not updated through these JPA entities after insertion. This is not an authorization mechanism for arbitrary database writers.
+
+Correlation loads the incident owner and scopes both telemetry queries by that workspace, service, and time window. A missing incident owner stops context construction and AI investigation; it never triggers global or default-tenant lookup. PRs are reached only through deployments selected by the scoped query. IncidentContextBundle includes workspaceId. Timeline generation and postmortem timeline sections use the same workspace predicates, including for legacy demos. Thus quarantine cannot read normal tenant telemetry either.
+
+Redis incident contexts use `context:v2:workspace:{workspaceId}:incident:{incidentId}:context`. Lookup and eviction require both IDs, and a cached bundle must match both embedded identities. Old `incident:{id}:context` entries are ignored and expire under their existing TTL; no fallback reads or bulk Redis deletion are performed. AI derives the cache workspace from the persisted incident, never the request payload. This does not make cached evidence fresh after late-arriving telemetry; invalidation/reinvestigation policy remains future work.
+
+Use a coordinated rollout with writers stopped/drained: old application versions cannot insert logs/deployments after V5 because they omit mandatory ownership, and old nodes still contain unsafe global correlation reads. Do not mix old/new versions or roll back only application binaries. Review large-table backfill/locking on representative data before production. No live database migration has been performed by this work.
+
+EvidenceTenantIsolationIntegrationTest verifies same-service overlapping tenant/quarantine evidence, scoped context including linked PRs, timeline/export inclusion and exclusion, reverse legacy isolation, and refusal of unassigned incidents. EvidenceOwnershipMigrationIntegrationTest upgrades V4 to V5 in a separate disposable schema, checks content/PR preservation and mandatory valid ownership. Redis integration coverage checks workspace isolation, identity mismatch rejection, scoped eviction, and bypass of old global keys.

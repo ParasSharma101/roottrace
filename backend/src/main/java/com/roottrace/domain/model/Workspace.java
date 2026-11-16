@@ -8,6 +8,8 @@ import java.util.UUID;
 @Table(name = "workspaces")
 public class Workspace {
 
+    public static final UUID LEGACY_WORKSPACE_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

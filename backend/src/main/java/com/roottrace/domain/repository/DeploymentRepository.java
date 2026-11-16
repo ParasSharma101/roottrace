@@ -8,6 +8,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface DeploymentRepository extends JpaRepository<Deployment, UUID> {
-    List<Deployment> findByServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(String serviceName, Instant start, Instant end);
-    List<Deployment> findByDeploymentTimeBetweenOrderByDeploymentTimeDesc(Instant start, Instant end);
+    List<Deployment> findByWorkspaceIdAndServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(UUID workspaceId, String serviceName, Instant start, Instant end);
 }

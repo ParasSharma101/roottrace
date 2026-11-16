@@ -55,7 +55,10 @@ public class AiInvestigationService {
                 .orElseThrow(() -> new IllegalArgumentException("Incident not found: " + incidentId));
 
         // 1. Get Context Bundle from Redis cache (or build from DB if cache miss)
-        IncidentContextBundle bundle = incidentContextCacheService.getCachedContextBundle(incidentId)
+        if (incident.getWorkspace() == null) {
+            throw new IllegalStateException("Incident has no workspace: " + incidentId);
+        }
+        IncidentContextBundle bundle = incidentContextCacheService.getCachedContextBundle(incident.getWorkspace().getId(), incidentId)
                 .orElseGet(() -> {
                     log.info("Cache miss in Redis for incident [{}]. Correlating directly from database.", incidentId);
                     IncidentContextBundle built = correlationService.buildContextBundle(incidentId);

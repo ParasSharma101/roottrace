@@ -14,6 +14,13 @@ public class LogEvent {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Existing unscoped writers are quarantined until authenticated ingestion supplies ownership.
+    @Column(name = "workspace_id", nullable = false, updatable = false)
+    private UUID workspaceId = Workspace.LEGACY_WORKSPACE_ID;
+
+    public UUID getWorkspaceId() { return workspaceId; }
+    public void setWorkspaceId(UUID workspaceId) { this.workspaceId = java.util.Objects.requireNonNull(workspaceId); }
+
     @Column(name = "service_name", nullable = false, length = 128)
     private String serviceName;
 

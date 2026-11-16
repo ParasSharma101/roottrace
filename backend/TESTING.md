@@ -49,7 +49,7 @@ Integration fixtures use independent signing/ingestion keys rather than known de
 
 WorkspaceAuthenticationIntegrationTest checks account-only login, explicit switching, membership-only listing, roles in the selected workspace, permission changes without token renewal, removed membership, old-format rejection, and non-member selection. Production JWT tests now create actual users and memberships rather than relying on email/role claims alone. These API checks use MockMvc; they do not verify the browser interaction or incident/telemetry tenant isolation.
 
-IncidentTenantIsolationIntegrationTest covers the incident API ownership boundary, including foreign reads/exports/mutations, same-incident child links, authenticated audit authors, legacy membership rejection, and exclusion of unscoped timeline telemetry. LegacyWorkspaceMigrationIntegrationTest upgrades an independent disposable schema from V2 to V3 and verifies preservation/backfill without touching public-schema fixtures. These checks do not yet validate tenant-owned ingestion or background correlation.
+IncidentTenantIsolationIntegrationTest covers the incident API ownership boundary, including foreign reads/exports/mutations, same-incident child links, authenticated audit authors, legacy membership rejection, and exclusion of unscoped timeline telemetry. LegacyWorkspaceMigrationIntegrationTest upgrades an independent disposable schema from V2 to V3 and verifies preservation/backfill without touching public-schema fixtures. These checks do not yet validate tenant-owned ingestion. Evidence/correlation isolation is covered below.
 
 Testcontainers 2.0.5 is pinned for the current Docker daemon. Commons Lang and Commons IO are pinned in test scope to satisfy its Commons Compress dependency without changing application source or adding runtime dependencies.
 
@@ -66,3 +66,7 @@ docker --context desktop-linux version --format 'Server={{.Server.Version}}'
 ```
 
 An engine HTTP 500 prevented container startup during the November 17 verification run. Restarting Docker Desktop restored its server response. A restart interrupts local containers, so coordinate it before proceeding; do not delete volumes or reset Docker data as a first response. Rerun tests in a fresh Maven JVM after recovery and keep the failed log separate from the successful run.
+
+## Evidence ownership regressions
+
+EvidenceTenantIsolationIntegrationTest uses the same service/time in two tenant workspaces and legacy quarantine. It verifies owned log/deployment/PR context, timeline/export filtering, reverse legacy isolation, and refusal to correlate an unassigned incident. EvidenceOwnershipMigrationIntegrationTest upgrades V4 to V5 in an independent disposable schema, preserves evidence/PR content, and checks mandatory valid workspace ownership. GitHubAndRedisContextIntegrationTest checks incident-context workspace keys, embedded identity validation, scoped eviction, and exclusion of old global cache entries. These tests do not establish authenticated tenant ingestion or tenant-safe GitHub integration.

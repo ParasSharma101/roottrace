@@ -24,7 +24,7 @@ import java.util.UUID;
 public class AuthDataSeeder {
 
     private static final Logger log = LoggerFactory.getLogger(AuthDataSeeder.class);
-    public static final UUID DEFAULT_WORKSPACE_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    public static final UUID DEFAULT_WORKSPACE_ID = Workspace.LEGACY_WORKSPACE_ID;
 
     private final UserRepository userRepository;
     private final WorkspaceRepository workspaceRepository;

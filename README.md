@@ -137,7 +137,7 @@ Backend will start on `http://localhost:8080`.
 
 Password login now leads to explicit workspace selection; signup selects the workspace just created. Users can switch memberships from the navbar. Previous-format sessions require a fresh login. See [the workspace design](backend/WORKSPACE_DESIGN.md) for the API contract and remaining tenant-isolation work. Incident/telemetry isolation is still incomplete, so this increment is not ready for public multi-tenant deployment.
 
-Incident APIs now enforce selected workspace ownership, and V3 preserves unassigned prototype incidents in the legacy workspace. Normal workspace timelines omit unscoped log/deployment evidence until tenant-aware ingestion is implemented. Local development demos retain that evidence. Background ingestion/correlation isolation remains unfinished.
+Incident APIs now enforce selected workspace ownership, and V3 preserves unassigned prototype incidents in the legacy workspace. V5 preserves historical logs/deployments in legacy quarantine and adds workspace-scoped evidence queries and Redis incident contexts. Named keys remain disabled for webhooks until authenticated ownership flows through Kafka and consumers. Public multi-tenant ingestion is still unfinished. See [workspace design](backend/WORKSPACE_DESIGN.md) for migration and rollout constraints.
 
 Workspace administrators can manage multiple named credentials in Settings, with one-time secret display and independent revocation. V4 retires the old plaintext workspace-key field. Named credentials are not yet enabled for webhook ingestion; see [the credential contract and integration gate](backend/INGESTION_KEYS.md).
 

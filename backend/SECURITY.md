@@ -31,7 +31,7 @@ Spring Boot and Next.js do not automatically load the repository-root `.env` whe
 
 Workspace-session increment: roles are now resolved from current database membership rather than trusted JWT claims. Version 2 sessions identify the user and optional workspace; old-format tokens require fresh login. See [WORKSPACE_DESIGN.md](WORKSPACE_DESIGN.md). The incident API boundary builds on this context; whole-pipeline isolation remains unfinished.
 
-Incident-boundary increment: incident APIs now scope lists and object access to the selected workspace, and reject mismatched child links. Legacy workspace membership cannot establish a normal session, even with a previously issued token. Unscoped log/deployment timeline evidence is withheld outside legacy development demos. Production ingestion, background correlation/AI, and caches still need tenant scoping; this is not yet a complete isolation boundary for the whole system.
+Incident-boundary increment: incident APIs now scope lists and object access to the selected workspace, and reject mismatched child links. Legacy workspace membership cannot establish a normal session, even with a previously issued token. V5 gives logs/deployments mandatory workspace ownership, preserving historical evidence in legacy quarantine. Correlation, timeline/export, and Redis incident contexts now use workspace scope; missing incident ownership stops correlation/AI. Authenticated ownership propagation through webhooks/Kafka/consumers remains pending, so named keys are still disabled for ingestion. GitHub integration/cache and historical AI provenance also need review before public multi-tenant use. See WORKSPACE_DESIGN.md for rollout constraints.
 
 ## Rotation and deployment limits
 

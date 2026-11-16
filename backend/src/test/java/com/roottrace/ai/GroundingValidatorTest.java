@@ -64,6 +64,7 @@ class GroundingValidatorTest {
 
         IncidentContextBundle bundle = new IncidentContextBundle(
                 UUID.randomUUID(),
+                UUID.randomUUID(),
                 "[Alert] payment-service: LatencyHigh",
                 SeverityLevel.SEV1,
                 IncidentStatus.OPEN,

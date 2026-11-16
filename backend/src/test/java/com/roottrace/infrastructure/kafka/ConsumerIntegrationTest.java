@@ -54,7 +54,8 @@ class ConsumerIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
         long deadline = System.currentTimeMillis() + 10000;
         List<LogEvent> persistedLogs = List.of();
         while (System.currentTimeMillis() < deadline) {
-            persistedLogs = logEventRepository.findByServiceNameAndTimestampBetweenOrderByTimestampDesc(
+            persistedLogs = logEventRepository.findByWorkspaceIdAndServiceNameAndTimestampBetweenOrderByTimestampDesc(
+                    com.roottrace.domain.model.Workspace.LEGACY_WORKSPACE_ID,
                     serviceName,
                     now.minus(2, ChronoUnit.MINUTES),
                     now.plus(1, ChronoUnit.MINUTES)

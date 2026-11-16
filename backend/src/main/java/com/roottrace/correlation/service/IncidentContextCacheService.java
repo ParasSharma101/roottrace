@@ -16,7 +16,7 @@ public class IncidentContextCacheService {
 
     private static final Logger log = LoggerFactory.getLogger(IncidentContextCacheService.class);
     private static final Duration CONTEXT_TTL = Duration.ofHours(2);
-    private static final String KEY_PREFIX = "incident:";
+    private static final String KEY_PREFIX = "context:v2:workspace:";
     private static final String KEY_SUFFIX = ":context";
 
     private final StringRedisTemplate redisTemplate;
@@ -28,9 +28,9 @@ public class IncidentContextCacheService {
     }
 
     public void cacheContextBundle(IncidentContextBundle bundle) {
-        if (bundle == null || bundle.incidentId() == null) return;
+        if (bundle == null || bundle.workspaceId() == null || bundle.incidentId() == null) return;
 
-        String key = buildKey(bundle.incidentId());
+        String key = buildKey(bundle.workspaceId(), bundle.incidentId());
         try {
             String json = objectMapper.writeValueAsString(bundle);
             redisTemplate.opsForValue().set(key, json, CONTEXT_TTL);
@@ -40,12 +40,16 @@ public class IncidentContextCacheService {
         }
     }
 
-    public Optional<IncidentContextBundle> getCachedContextBundle(UUID incidentId) {
-        String key = buildKey(incidentId);
+    public Optional<IncidentContextBundle> getCachedContextBundle(UUID workspaceId, UUID incidentId) {
+        String key = buildKey(workspaceId, incidentId);
         try {
             String json = redisTemplate.opsForValue().get(key);
             if (json != null && !json.isBlank()) {
                 IncidentContextBundle bundle = objectMapper.readValue(json, IncidentContextBundle.class);
+                if (!workspaceId.equals(bundle.workspaceId()) || !incidentId.equals(bundle.incidentId())) {
+                    log.warn("Ignoring context with mismatched ownership at [{}]", key);
+                    return Optional.empty();
+                }
                 log.info("Redis cache HIT for incident context [{}]", key);
                 return Optional.of(bundle);
             }
@@ -55,8 +59,8 @@ public class IncidentContextCacheService {
         return Optional.empty();
     }
 
-    public void evictContextBundle(UUID incidentId) {
-        String key = buildKey(incidentId);
+    public void evictContextBundle(UUID workspaceId, UUID incidentId) {
+        String key = buildKey(workspaceId, incidentId);
         try {
             redisTemplate.delete(key);
             log.info("Evicted incident context from Redis for key [{}]", key);
@@ -65,7 +69,9 @@ public class IncidentContextCacheService {
         }
     }
 
-    private String buildKey(UUID incidentId) {
-        return KEY_PREFIX + incidentId + KEY_SUFFIX;
+    private String buildKey(UUID workspaceId, UUID incidentId) {
+        java.util.Objects.requireNonNull(workspaceId, "workspaceId");
+        java.util.Objects.requireNonNull(incidentId, "incidentId");
+        return KEY_PREFIX + workspaceId + ":incident:" + incidentId + KEY_SUFFIX;
     }
 }

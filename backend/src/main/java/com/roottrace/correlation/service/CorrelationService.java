@@ -63,6 +63,11 @@ public class CorrelationService {
         Incident incident = incidentRepository.findById(incidentId)
                 .orElseThrow(() -> new IllegalArgumentException("Incident not found: " + incidentId));
 
+        if (incident.getWorkspace() == null) {
+            throw new IllegalStateException("Incident has no workspace: " + incidentId);
+        }
+        UUID workspaceId = incident.getWorkspace().getId();
+
         List<Alert> alerts = alertRepository.findByIncidentIdOrderByTriggeredAtDesc(incidentId);
 
         String serviceName;
@@ -78,7 +83,7 @@ public class CorrelationService {
 
         // 1. Fetch deployments in window
         List<Deployment> deployments = deploymentRepository
-                .findByServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(serviceName, windowStart, windowEnd);
+                .findByWorkspaceIdAndServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(workspaceId, serviceName, windowStart, windowEnd);
 
         List<DeploymentSummary> deploymentSummaries = new ArrayList<>();
         for (Deployment deployment : deployments) {
@@ -108,7 +113,7 @@ public class CorrelationService {
 
         // 2. Fetch and compress raw logs in window
         List<LogEvent> rawLogs = logEventRepository
-                .findByServiceNameAndTimestampBetweenOrderByTimestampDesc(serviceName, windowStart, windowEnd);
+                .findByWorkspaceIdAndServiceNameAndTimestampBetweenOrderByTimestampDesc(workspaceId, serviceName, windowStart, windowEnd);
 
         List<CompressedLogSignature> compressedLogs = logFingerprinter.compress(rawLogs);
 
@@ -125,6 +130,7 @@ public class CorrelationService {
                 .toList();
 
         IncidentContextBundle bundle = new IncidentContextBundle(
+                workspaceId,
                 incident.getId(),
                 incident.getTitle(),
                 incident.getSeverityLevel(),

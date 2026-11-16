@@ -41,7 +41,7 @@ This preserves previously issued prototype credentials where feasible; it does n
 
 IngestionKeyService.resolveWorkspace validates hashes, revoked status, and non-legacy ownership for the following integration step. It is deliberately not connected to WebhookApiKeyFilter yet: the existing Kafka path cannot safely attribute tenant-owned evidence end to end. The current global ingestion credential still routes unscoped alerts to legacy quarantine. Named keys shown here do not yet authenticate webhook requests, and the UI says so explicitly.
 
-Next: connect authenticated key identity to a versioned server-generated event envelope, carry ownership through consumers and persistence, and scope correlation/AI/cache reads before enabling tenant-key webhook traffic. Do not accept payload workspace IDs as authority or enable new keys on the old path. Deployment ingestion, key usage metrics/rate limits/expiry, and workspace deletion lifecycle are separate pending tasks.
+V5 now provides workspace-owned log/deployment persistence and scopes correlation, timeline/export, and Redis incident-context reads. Next: connect authenticated key identity to a versioned server-generated event envelope and carry that ownership through consumers before enabling tenant-key webhook traffic. Do not accept payload workspace IDs as authority or enable new keys on the old path. Deployment ingestion, key usage metrics/rate limits/expiry, and workspace deletion lifecycle are separate pending tasks.
 
 ## Verification
 

@@ -136,10 +136,8 @@ public class IncidentWorkspaceService {
         List<TimelineEventDto> timeline = new ArrayList<>();
 
         // 1. Deployments & GitHub PRs
-        // Unscoped telemetry is usable only for the explicitly accessible legacy demo.
-        // Normal workspaces must wait for tenant-owned telemetry ingestion/queries.
-        List<Deployment> deployments = incident.getWorkspace().isLegacy() ? deploymentRepository
-                .findByServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(serviceName, windowStart, windowEnd) : List.of();
+        List<Deployment> deployments = deploymentRepository
+                .findByWorkspaceIdAndServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(workspaceId, serviceName, windowStart, windowEnd);
 
         for (Deployment deployment : deployments) {
             Map<String, Object> depMeta = new HashMap<>();
@@ -195,8 +193,8 @@ public class IncidentWorkspaceService {
         }
 
         // 3. Representative Error Logs (limit to top 15 to avoid timeline bloat)
-        List<LogEvent> errorLogs = incident.getWorkspace().isLegacy() ? logEventRepository
-                .findByServiceNameAndLogLevelAndTimestampBetweenOrderByTimestampDesc(serviceName, LogLevel.ERROR, windowStart, windowEnd) : List.of();
+        List<LogEvent> errorLogs = logEventRepository
+                .findByWorkspaceIdAndServiceNameAndLogLevelAndTimestampBetweenOrderByTimestampDesc(workspaceId, serviceName, LogLevel.ERROR, windowStart, windowEnd);
 
         Set<String> seenMessages = new HashSet<>();
         int logCount = 0;

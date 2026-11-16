@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface LogEventRepository extends JpaRepository<LogEvent, UUID> {
-    List<LogEvent> findByServiceNameAndTimestampBetweenOrderByTimestampDesc(String serviceName, Instant start, Instant end);
-    List<LogEvent> findByServiceNameAndLogLevelAndTimestampBetweenOrderByTimestampDesc(String serviceName, LogLevel logLevel, Instant start, Instant end);
-    List<LogEvent> findByTimestampBetweenOrderByTimestampDesc(Instant start, Instant end);
+    List<LogEvent> findByWorkspaceIdAndServiceNameAndTimestampBetweenOrderByTimestampDesc(UUID workspaceId, String serviceName, Instant start, Instant end);
+    List<LogEvent> findByWorkspaceIdAndServiceNameAndLogLevelAndTimestampBetweenOrderByTimestampDesc(UUID workspaceId, String serviceName, LogLevel logLevel, Instant start, Instant end);
 }
