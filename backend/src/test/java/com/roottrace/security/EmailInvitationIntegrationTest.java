@@ -177,7 +177,7 @@ class EmailInvitationIntegrationTest extends IntegrationTestSupport {
                 .when(target).enqueue(eq("VERIFY_EMAIL"),anyString(),any(),isNull(),anyString());
         String email=UUID.randomUUID()+"@example.com";
         mvc.perform(post("/api/v1/auth/signup").contentType("application/json").content(mapper.writeValueAsString(Map.of(
-                "fullName","Rollback","email",email,"password","test-password","workspaceName","Rollback workspace"))))
+                "fullName","Rollback","email",email,"password","test-password-123","workspaceName","Rollback workspace"))))
                 .andExpect(status().isServiceUnavailable());
         assertThat(jdbc.queryForObject("select count(*) from users where email=?",Integer.class,email)).isZero();
     }
@@ -233,7 +233,7 @@ class EmailInvitationIntegrationTest extends IntegrationTestSupport {
     private Account signup() throws Exception {
         String email=UUID.randomUUID()+"@example.com";
         String json=mvc.perform(post("/api/v1/auth/signup").contentType("application/json")
-                .content(mapper.writeValueAsString(Map.of("fullName","Mail test","email",email,"password","test-password","workspaceName",UUID.randomUUID().toString()))))
+                .content(mapper.writeValueAsString(Map.of("fullName","Mail test","email",email,"password","test-password-123","workspaceName",UUID.randomUUID().toString()))))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.emailVerified").value(false)).andReturn().getResponse().getContentAsString();
         JsonNode body=mapper.readTree(json);
         return new Account(UUID.fromString(body.path("userId").asText()),email,UUID.fromString(body.path("workspaceId").asText()),"Bearer "+body.path("token").asText());

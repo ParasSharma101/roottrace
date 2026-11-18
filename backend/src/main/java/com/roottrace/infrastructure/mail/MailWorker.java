@@ -21,7 +21,13 @@ public class MailWorker {
         var item=claimed.get();
         try {
             SimpleMailMessage message=new SimpleMailMessage(); message.setFrom(settings.from); message.setTo(item.recipient());
-            message.setSubject(item.purpose().equals("VERIFY_EMAIL")?"Verify your RootTrace email":"RootTrace workspace invitation");
+            message.setSubject(switch(item.purpose()) {
+                case "VERIFY_EMAIL" -> "Verify your RootTrace email";
+                case "WORKSPACE_INVITE" -> "RootTrace workspace invitation";
+                case "PASSWORD_RESET" -> "Reset your RootTrace password";
+                case "PASSWORD_CHANGED" -> "Your RootTrace password was changed";
+                default -> throw new IllegalArgumentException("Unknown mail purpose");
+            });
             message.setText(cipher.decrypt(item.id(),item.purpose(),item.recipient(),item.body(),item.nonce()));
             sender.send(message);
             outbox.sent(item);

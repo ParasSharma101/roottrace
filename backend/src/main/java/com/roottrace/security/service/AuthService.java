@@ -38,6 +38,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final WorkspaceAccessPolicy accessPolicy;
     private final EmailVerificationService verification;
+    private final SessionRevocationService sessions;
 
     public AuthService(
             UserRepository userRepository,
@@ -45,7 +46,7 @@ public class AuthService {
             WorkspaceMemberRepository workspaceMemberRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider tokenProvider,
-            WorkspaceAccessPolicy accessPolicy, EmailVerificationService verification
+            WorkspaceAccessPolicy accessPolicy, EmailVerificationService verification,SessionRevocationService sessions
     ) {
         this.userRepository = userRepository;
         this.workspaceRepository = workspaceRepository;
@@ -54,10 +55,12 @@ public class AuthService {
         this.tokenProvider = tokenProvider;
         this.accessPolicy = accessPolicy;
         this.verification=verification;
+        this.sessions=sessions;
     }
 
     @Transactional
     public AuthResponse signup(SignupRequest request) {
+        com.roottrace.security.PasswordPolicy.validate(request.password());
         String email = request.email().toLowerCase().trim();
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("An account with this email already exists: " + email);
@@ -89,9 +92,9 @@ public class AuthService {
         return response(user, member);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.email().toLowerCase().trim())
+        User user = userRepository.findByEmailForUpdate(request.email().toLowerCase(java.util.Locale.ROOT).trim())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadCredentialsException("Invalid email or password");
@@ -112,12 +115,13 @@ public class AuthService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
-    public AuthResponse selectWorkspace(UUID userId, UUID workspaceId) {
-        WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+    @Transactional
+    public AuthResponse selectWorkspace(WorkspaceIdentity identity, UUID workspaceId) {
+        sessions.lockActive(identity);
+        WorkspaceMember member = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, identity.userId())
                 .filter(membership -> accessPolicy.canAccess(membership.getWorkspace()))
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace not found"));
-        return response(member.getUser(), member);
+        return response(member.getUser(), member,tokenProvider.selectWorkspace(identity,workspaceId));
     }
 
     @Transactional(readOnly = true)
@@ -149,10 +153,14 @@ public class AuthService {
     }
 
     private AuthResponse response(User user, WorkspaceMember member) {
+        return response(user,member,tokenProvider.generateToken(user.getId(),member==null?null:member.getWorkspace().getId(),user.getAuthEpoch()));
+    }
+
+    private AuthResponse response(User user,WorkspaceMember member,String token) {
         Workspace ws = member == null ? null : member.getWorkspace();
         var identity = new WorkspaceIdentity(user.getId(), user.getEmail(), user.getFullName(),
                 ws == null ? null : ws.getId(), member == null ? null : member.getRole());
-        return new AuthResponse(tokenProvider.generateToken(user.getId(), identity.workspaceId()),
+        return new AuthResponse(token,
                 user.getId(), user.getEmail(), user.isEmailVerified(), user.getFullName(), identity.roles(), identity.workspaceId(),
                 ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
                 null);

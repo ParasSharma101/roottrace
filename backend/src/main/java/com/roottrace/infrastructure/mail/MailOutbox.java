@@ -12,9 +12,13 @@ public class MailOutbox {
     public MailOutbox(JdbcTemplate jdbc,MailCipher cipher) { this.jdbc=jdbc; this.cipher=cipher; }
     @Transactional(propagation=Propagation.MANDATORY)
     public void enqueue(String purpose,String recipient,UUID verification,UUID invitation,String body) {
+        enqueue(purpose,recipient,verification,invitation,null,body);
+    }
+    @Transactional(propagation=Propagation.MANDATORY)
+    public void enqueue(String purpose,String recipient,UUID verification,UUID invitation,UUID reset,String body) {
         UUID id=UUID.randomUUID(); var encrypted=cipher.encrypt(id,purpose,recipient,body);
-        jdbc.update("insert into outbound_emails(id,purpose,recipient,verification_id,invitation_id,encrypted_body,nonce) values (?,?,?,?,?,?,?)",
-                id,purpose,recipient,verification,invitation,encrypted.body(),encrypted.nonce());
+        jdbc.update("insert into outbound_emails(id,purpose,recipient,verification_id,invitation_id,reset_id,encrypted_body,nonce) values (?,?,?,?,?,?,?,?)",
+                id,purpose,recipient,verification,invitation,reset,encrypted.body(),encrypted.nonce());
     }
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public Optional<Message> claim() {
@@ -24,7 +28,9 @@ public class MailOutbox {
               (m.verification_id is not null and exists (select 1 from email_verifications v where v.id=m.verification_id and
                 (v.expires_at<=current_timestamp or v.revoked_at is not null or v.consumed_at is not null))) or
               (m.invitation_id is not null and exists (select 1 from workspace_invites i where i.id=m.invitation_id and
-                (i.status<>'PENDING' or i.expires_at<=current_timestamp))))
+                (i.status<>'PENDING' or i.expires_at<=current_timestamp))) or
+              (m.purpose='PASSWORD_RESET' and exists (select 1 from password_resets r join users u on u.id=r.user_id
+                where r.id=m.reset_id and (r.expires_at<=current_timestamp or r.revoked_at is not null or r.consumed_at is not null or r.email<>lower(trim(u.email))))))
             """);
         jdbc.update("update outbound_emails set status='FAILED',claim_token=null,lease_until=null,last_error_code='LeaseExpired' where status='RUNNING' and lease_until<=current_timestamp and attempts=5");
         UUID token=UUID.randomUUID();

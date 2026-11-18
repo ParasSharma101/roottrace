@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Invalid, expired, and previous-version sessions never establish identity.
             }
             if (tokenIdentity != null) {
-                workspaceAuthentication.authenticate(tokenIdentity.userId(), tokenIdentity.workspaceId())
+                workspaceAuthentication.authenticate(tokenIdentity)
                         .ifPresent(identity -> {
                             var authorities = identity.roles().stream().map(SimpleGrantedAuthority::new).toList();
                             var authentication = new UsernamePasswordAuthenticationToken(identity, null, authorities);

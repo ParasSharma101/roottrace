@@ -31,6 +31,9 @@ public class User {
     private String verifiedEmail;
     @Column(name="email_verified_at")
     private Instant emailVerifiedAt;
+    @Column(name="auth_epoch",nullable=false)
+    private long authEpoch;
+    public long getAuthEpoch() { return authEpoch; }
     public boolean isEmailVerified() {
         return emailVerifiedAt!=null && verifiedEmail!=null && verifiedEmail.equals(email.toLowerCase(java.util.Locale.ROOT).strip());
     }

@@ -56,3 +56,7 @@ The self-hosted Compose broker now requires client TLS identity and resource ACL
 ## Verified email and invitation consent
 
 V8 retires plaintext invitation tokens, revokes old pending invitations and preserves existing memberships. New membership requires authenticated explicit acceptance by an account with a verified matching email; the invitation ID alone grants nothing. Verification requires both the emailed token and its requesting account session, and issues no JWT. Proofs are hashed; retryable mail bodies use separately keyed AES-GCM and are scrubbed after send/cancellation. SMTP is opt-in with production TLS/authentication validation. See [EMAIL_INVITATIONS.md](EMAIL_INVITATIONS.md) for migration, configuration, recovery and account lifecycle limits.
+
+## Account recovery and revocation
+
+V9 adds asynchronous encrypted recovery intake, hashed single-use reset links, server-side session-family revocation and account-wide authentication epochs. Password reset atomically changes the password, proves the matching email, retires outstanding recovery/verification links, revokes sessions and queues notification. JWT version 3 is required; workspace selection cannot extend expiry or escape revocation. New passwords require 15 Unicode code points and at most 72 UTF-8 bytes; existing passwords remain usable. See [ACCOUNT_RECOVERY.md](ACCOUNT_RECOVERY.md) for coordinated rollout, direct-peer rate limits/proxy constraints, key custody and remaining lifecycle work.

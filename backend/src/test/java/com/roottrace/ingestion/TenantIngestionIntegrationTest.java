@@ -127,7 +127,7 @@ class TenantIngestionIntegrationTest extends IntegrationTestSupport {
     private Account account() throws Exception {
         String unique = UUID.randomUUID().toString();
         String json = mvc.perform(post("/api/v1/auth/signup").contentType("application/json").content(mapper.writeValueAsString(Map.of(
-                "fullName", "Pipeline Test", "email", unique + "@example.com", "password", "test-password", "workspaceName", unique))))
+                "fullName", "Pipeline Test", "email", unique + "@example.com", "password", "test-password-123", "workspaceName", unique))))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
         JsonNode body = mapper.readTree(json);
         return new Account(UUID.fromString(body.path("workspaceId").asText()), "Bearer " + body.path("token").asText());

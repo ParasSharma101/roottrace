@@ -50,6 +50,6 @@ public class AuthController {
 
     @PostMapping("/select-workspace")
     public AuthResponse selectWorkspace(@Valid @RequestBody SelectWorkspaceRequest request, Authentication authentication) {
-        return authService.selectWorkspace(WorkspaceIdentity.require(authentication).userId(), request.workspaceId());
+        return authService.selectWorkspace(WorkspaceIdentity.require(authentication), request.workspaceId());
     }
 }

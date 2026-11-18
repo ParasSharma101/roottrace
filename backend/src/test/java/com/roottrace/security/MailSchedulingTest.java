@@ -17,6 +17,7 @@ class MailSchedulingTest {
         AtomicReference<String> thread=new AtomicReference<>();
         when(worker.deliverOne()).thenAnswer(call -> { thread.set(Thread.currentThread().getName()); return false; });
         var runner=new ApplicationContextRunner().withUserConfiguration(MailScheduling.class)
+                .withBean(com.roottrace.security.service.RecoveryRequestWorker.class,() -> mock(com.roottrace.security.service.RecoveryRequestWorker.class))
                 .withBean(MailWorker.class,() -> worker);
         runner.run(context -> {
             assertThat(context).doesNotHaveBean(MailScheduling.class);

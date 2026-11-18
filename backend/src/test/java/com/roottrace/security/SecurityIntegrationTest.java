@@ -59,7 +59,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
         SignupRequest signupReq = new SignupRequest(
                 "Alex Founder",
                 testEmail,
-                "securePass123",
+                "securePass123456",
                 "Acme Payments Prod"
         );
 

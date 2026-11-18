@@ -11,11 +11,15 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @ConditionalOnProperty(name={"roottrace.mail.enabled","roottrace.mail.scheduling.enabled"},havingValue="true")
 public class MailScheduling {
     private final MailWorker worker;
-    public MailScheduling(MailWorker worker) { this.worker=worker; }
+    private final com.roottrace.security.service.RecoveryRequestWorker recovery;
+    public MailScheduling(MailWorker worker,com.roottrace.security.service.RecoveryRequestWorker recovery) { this.worker=worker; this.recovery=recovery; }
     @Bean
     public ThreadPoolTaskScheduler mailTaskScheduler() {
         var scheduler=new ThreadPoolTaskScheduler(); scheduler.setPoolSize(1); scheduler.setThreadNamePrefix("mail-delivery-"); return scheduler;
     }
     @Scheduled(fixedDelayString="${roottrace.mail.delivery-delay-ms:1000}",scheduler="mailTaskScheduler")
-    public void deliver() { for(int i=0;i<10 && worker.deliverOne();i++) { } }
+    public void deliver() {
+        for(int i=0;i<10 && recovery.processOne();i++) { }
+        for(int i=0;i<10 && worker.deliverOne();i++) { }
+    }
 }

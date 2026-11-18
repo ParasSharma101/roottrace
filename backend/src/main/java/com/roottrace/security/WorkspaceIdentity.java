@@ -7,8 +7,12 @@ import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
 
-public record WorkspaceIdentity(UUID userId, String email, String fullName, UUID workspaceId, String role)
+public record WorkspaceIdentity(UUID userId, String email, String fullName, UUID workspaceId, String role,
+                                UUID sessionId,long authEpoch,java.time.Instant sessionExpiresAt)
         implements Principal {
+    public WorkspaceIdentity(UUID userId,String email,String fullName,UUID workspaceId,String role) {
+        this(userId,email,fullName,workspaceId,role,null,0,null);
+    }
     @Override
     public String getName() { return email; }
 
