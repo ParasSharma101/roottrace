@@ -8,7 +8,7 @@ import {
   SeverityLevel,
   TimelineEvent,
 } from '@/types';
-import { getAuthToken } from './auth';
+import { getAuthToken, clearAuthSession } from './auth';
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -138,6 +138,8 @@ export async function triggerScenarioB(): Promise<any> {
 // =========================================================================
 
 export interface TeamMember {
+  membershipId: string;
+  version: number;
   userId: string;
   fullName: string;
   email: string;
@@ -155,6 +157,38 @@ export interface WorkspaceDetails {
 
 export async function getWorkspaceDetails(): Promise<WorkspaceDetails> {
   return fetchJson<WorkspaceDetails>(`${API_BASE}/workspace`);
+}
+
+export interface MembershipAuditEntry {
+  id: string; membershipId: string; actorEmail: string; targetEmail: string;
+  action: 'ROLE_CHANGED' | 'MEMBER_REMOVED' | 'MEMBER_LEFT'; previousRole: string; newRole: string | null;
+  membershipVersion: number; reason: string; revokedInvitations: number; createdAt: string;
+}
+
+async function membershipMutation(member: TeamMember, action: 'role' | 'remove', reason: string, role?: string): Promise<Response> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Sign in again to manage membership.');
+  const response = await fetch(`${API_BASE}/workspace/members/${encodeURIComponent(member.membershipId)}/${action}`, {
+    method: action === 'role' ? 'PATCH' : 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, cache: 'no-store',
+    body: JSON.stringify({ expectedVersion: member.version, reason, ...(action === 'role' ? { role } : {}) }),
+  });
+  if (response.status === 401) { clearAuthSession(); throw new Error('Your session is no longer active. Sign in again.'); }
+  if (response.status === 409) throw new Error('Membership changed, or this action would remove the last administrator. Refresh the team before trying again.');
+  if (response.status === 404) throw new Error('This membership is no longer available. Refresh the team.');
+  if (response.status === 403) throw new Error('You need current administrator access and a verified email to manage other members.');
+  if (!response.ok) throw new Error('Unable to complete the membership change. Check your access and try again.');
+  return response;
+}
+
+export async function changeMemberRole(member: TeamMember, role: string, reason: string): Promise<TeamMember> {
+  return (await membershipMutation(member, 'role', reason, role)).json();
+}
+export async function removeMember(member: TeamMember, reason: string): Promise<void> {
+  await membershipMutation(member, 'remove', reason);
+}
+export async function listMembershipAudit(before?: string): Promise<CursorPage<MembershipAuditEntry>> {
+  return fetchJson(`${API_BASE}/workspace/members/audit${before ? `?before=${encodeURIComponent(before)}` : ''}`);
 }
 
 export async function inviteWorkspaceMember(email: string, role: string): Promise<WorkspaceInvitation> {

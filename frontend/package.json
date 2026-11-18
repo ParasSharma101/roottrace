@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test:auth-storage": "node --test tests/auth-storage.test.cjs",
+    "test:membership": "node --test tests/membership-requests.test.cjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
