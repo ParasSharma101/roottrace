@@ -138,10 +138,12 @@ export default function SignupPage() {
                 <input
                   type="password"
                   required
-                  minLength={6}
+                  minLength={15}
+                  maxLength={72}
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
+                  placeholder="At least 15 characters"
                   className="block w-full rounded-lg border border-slate-800 bg-slate-900/80 pl-10 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors"
                 />
               </div>

@@ -19,7 +19,7 @@ import {
   Layers
 } from 'lucide-react';
 import { triggerScenarioA, triggerScenarioB } from '@/lib/api';
-import { AuthUser, getAuthUser, loginDemoRole, clearAuthSession, TOKEN_KEY } from '@/lib/auth';
+import { AuthUser, getAuthUser, loginDemoRole, signOut, TOKEN_KEY } from '@/lib/auth';
 import { isDemoEnabled } from '@/lib/demo';
 
 export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
@@ -29,6 +29,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSandboxMenu, setShowSandboxMenu] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     setUser(getAuthUser());
@@ -42,7 +43,7 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
       if (event.storageArea === localStorage && (event.key === TOKEN_KEY || event.key === null)) {
         // Keep the proof held in this page's memory when signing in in another tab.
         // This page has no selected-workspace data; verification still checks the requesting account.
-        if (window.location.pathname === '/verify-email') {
+        if (['/verify-email', '/reset-password'].includes(window.location.pathname)) {
           setUser(getAuthUser());
           return;
         }
@@ -92,11 +93,17 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
     }
   };
 
-  const handleSignOut = () => {
-    clearAuthSession();
-    setUser(null);
-    setShowUserMenu(false);
-    router.push('/login');
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      setUser(null);
+      setShowUserMenu(false);
+      router.push('/login');
+    } catch {
+      setMessage('Unable to confirm sign-out. Try again or sign in again.');
+    } finally { setSigningOut(false); }
   };
 
   const currentRole = user?.roles?.some(r => r.includes('ADMIN'))
@@ -286,10 +293,11 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
                   </Link>
                   <button
                     onClick={handleSignOut}
+                    disabled={signingOut}
                     className="w-full flex items-center gap-2 px-3.5 py-2 text-rose-400 hover:bg-rose-950/20 transition-colors"
                   >
                     <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Sign Out</span>
+                    <span>{signingOut ? 'Signing out...' : 'Sign Out'}</span>
                   </button>
                 </div>
               </div>

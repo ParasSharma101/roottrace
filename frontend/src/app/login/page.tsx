@@ -131,6 +131,7 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+          <Link href="/forgot-password" className="mt-4 block text-xs text-indigo-300 hover:text-indigo-200">Forgot your password?</Link>
 
           {/* Quick 1-Click Evaluation Personas */}
           {isDemoEnabled && (

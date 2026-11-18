@@ -6,6 +6,7 @@ import { TaskRecoveryPanel } from '@/components/TaskRecoveryPanel';
 import { IngestionKeysPanel } from '@/components/IngestionKeysPanel';
 import { getWorkspaceDetails, WorkspaceDetails } from '@/lib/api';
 import { EmailVerificationPanel } from '@/components/EmailVerificationPanel';
+import { AccountSecurityPanel } from '@/components/AccountSecurityPanel';
 import { WorkspaceInvitationsPanel } from '@/components/WorkspaceInvitationsPanel';
 import { EmailStatus, getAuthUser } from '@/lib/auth';
 import { Key, Users, Copy, Check, UserPlus, Shield, UserCheck, Eye, Terminal, Sparkles, Building } from 'lucide-react';
@@ -63,6 +64,7 @@ export default function SettingsPage() {
             {/* Left 2 Cols: Ingestion Key & Webhook setup */}
             <div className="lg:col-span-2 space-y-6">
               <EmailVerificationPanel onChange={setEmailStatus} />
+              <AccountSecurityPanel />
               <IngestionKeysPanel isAdmin={!!isAdmin} />
               {isOperator && <TaskRecoveryPanel />}
             </div>

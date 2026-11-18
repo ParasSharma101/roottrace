@@ -125,6 +125,7 @@ export async function loginWithCredentials(email: string, password: string): Pro
 }
 
 export async function signupUser(fullName: string, email: string, password: string, workspaceName: string): Promise<AuthUser> {
+  validateNewPassword(password);
   const res = await fetch(`${getApiBase()}/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -198,4 +199,42 @@ export async function verifyEmailAddress(token: string): Promise<void> {
   });
   if (response.status === 401) clearAuthSession();
   if (!response.ok) throw new Error('The link is expired, invalid, or belongs to a different account. Sign in to the requesting account or request a new link.');
+}
+
+export async function signOut(allSessions = false): Promise<void> {
+  const token = getAuthToken();
+  if (!token) { clearAuthSession(); return; }
+  const response = await fetch(`${getApiBase()}/auth/${allSessions ? 'logout-all' : 'logout'}`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+  });
+  if (response.status === 401) {
+    clearAuthSession();
+    if (allSessions) throw new Error('Sign in again to revoke all sessions.');
+    return; // This session is already inactive, including a retry after a lost logout response.
+  }
+  if (!response.ok) throw new Error('Unable to confirm session revocation. Try again.');
+  clearAuthSession();
+}
+
+export function validateNewPassword(password: string): void {
+  if (Array.from(password).length < 15 || new TextEncoder().encode(password).length > 72) {
+    throw new Error('Use at least 15 characters and at most 72 bytes. Shorten passwords containing many accented characters or emoji.');
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const response = await fetch(`${getApiBase()}/auth/password/forgot`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), cache: 'no-store',
+  });
+  if (!response.ok) throw new Error('Unable to request recovery right now. Try again later.');
+}
+
+export async function resetPassword(token: string, password: string): Promise<void> {
+  validateNewPassword(password);
+  const response = await fetch(`${getApiBase()}/auth/password/reset`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, password }), cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(response.status === 429 ? 'Too many recovery attempts. Try again later.' :
+    'The link may be expired or already used, or recovery is unavailable. Request a new link and try again.');
+  clearAuthSession();
 }

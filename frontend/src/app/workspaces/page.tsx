@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EmailVerificationPanel } from '@/components/EmailVerificationPanel';
+import { AccountSecurityPanel } from '@/components/AccountSecurityPanel';
 import { InvitationInbox } from '@/components/InvitationInbox';
 import { EmailStatus, getAuthToken, listMyWorkspaces, selectWorkspace, WorkspaceMembership } from '@/lib/auth';
 
@@ -40,6 +41,7 @@ export default function WorkspacesPage() {
       <p className="mt-2 text-sm text-slate-400">Your permissions apply to the workspace you select.</p>
     </div>
     <EmailVerificationPanel onChange={setEmailStatus} />
+    <AccountSecurityPanel />
     <InvitationInbox emailVerified={!!emailStatus?.emailVerified} onAccepted={() => { void listMyWorkspaces().then(setWorkspaces).catch(() => setError('Refresh workspaces to see your new membership.')); }} />
     {error && <p role="alert" className="text-rose-300">{error} <Link href="/login" className="underline">Sign in</Link></p>}
     {loading ? <p className="text-slate-400">Loading workspaces...</p> :
