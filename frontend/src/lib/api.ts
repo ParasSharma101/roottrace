@@ -157,7 +157,7 @@ export async function getWorkspaceDetails(): Promise<WorkspaceDetails> {
   return fetchJson<WorkspaceDetails>(`${API_BASE}/workspace`);
 }
 
-export async function inviteWorkspaceMember(email: string, role: string): Promise<any> {
+export async function inviteWorkspaceMember(email: string, role: string): Promise<WorkspaceInvitation> {
   return fetchJson(`${API_BASE}/workspace/invites`, {
     method: 'POST',
     body: JSON.stringify({ email, role }),
@@ -230,4 +230,24 @@ export interface QueueHealth {
 }
 export async function getQueueHealth(): Promise<QueueHealth> {
   return fetchJson(`${API_BASE}/workspace/queue-health`);
+}
+
+
+export interface WorkspaceInvitation {
+  id: string; workspaceId: string; workspaceName: string; email: string; role: string; status: string;
+  createdAt: string; expiresAt: string; invitedByEmail: string | null; acceptedAt: string | null; revokedAt: string | null; deliveryStatus: string;
+}
+export async function listWorkspaceInvites(before?: string): Promise<CursorPage<WorkspaceInvitation>> {
+  return fetchJson(`${API_BASE}/workspace/invites${before ? `?before=${encodeURIComponent(before)}` : ''}`);
+}
+export async function revokeWorkspaceInvite(id: string): Promise<void> {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}/workspace/invites/${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+  if (!response.ok) throw new Error('Invitation could not be revoked');
+}
+export async function listMyInvitations(before?: string): Promise<CursorPage<WorkspaceInvitation>> {
+  return fetchJson(`${API_BASE}/auth/invitations${before ? `?before=${encodeURIComponent(before)}` : ''}`);
+}
+export async function acceptWorkspaceInvitation(id: string): Promise<{ workspaceId: string; workspaceName: string; role: string }> {
+  return fetchJson(`${API_BASE}/auth/invitations/${encodeURIComponent(id)}/accept`, { method: 'POST' });
 }

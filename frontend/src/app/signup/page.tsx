@@ -22,7 +22,7 @@ export default function SignupPage() {
 
     try {
       await signupUser(fullName, email, password, workspaceName);
-      router.push('/');
+      router.push('/workspaces');
     } catch (err: any) {
       setError(err.message || 'Failed to create workspace account');
     } finally {

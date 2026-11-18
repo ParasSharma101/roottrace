@@ -5,6 +5,7 @@ import { isDemoEnabled } from './demo';
 export interface AuthUser {
   userId?: string;
   email: string;
+  emailVerified?: boolean;
   fullName: string;
   name?: string;
   roles: string[];
@@ -35,7 +36,7 @@ async function accountRequest(path: string, options?: RequestInit): Promise<Resp
   });
   if (!response.ok) {
     if (response.status === 401) clearAuthSession();
-    throw new Error(response.status === 401 ? 'Your session expired. Sign in again.' : 'Workspace access unavailable');
+    throw new Error(response.status === 401 ? 'Your session expired. Sign in again.' : 'Account request unavailable');
   }
   return response;
 }
@@ -108,6 +109,7 @@ export async function loginWithCredentials(email: string, password: string): Pro
   const user: AuthUser = {
     userId: data.userId,
     email: data.email,
+    emailVerified: !!data.emailVerified,
     fullName: data.fullName,
     name: data.fullName || data.email.split('@')[0],
     roles: data.roles,
@@ -138,6 +140,7 @@ export async function signupUser(fullName: string, email: string, password: stri
   const user: AuthUser = {
     userId: data.userId,
     email: data.email,
+    emailVerified: !!data.emailVerified,
     fullName: data.fullName,
     name: data.fullName,
     roles: data.roles,
@@ -168,6 +171,7 @@ export async function loginDemoRole(role: 'SRE' | 'VIEWER' | 'ADMIN'): Promise<A
   const authUser: AuthUser = {
     userId: data.userId,
     email: data.email,
+    emailVerified: !!data.emailVerified,
     fullName: data.fullName,
     name: data.fullName || data.email.split('@')[0],
     roles: data.roles,
@@ -180,4 +184,18 @@ export async function loginDemoRole(role: 'SRE' | 'VIEWER' | 'ADMIN'): Promise<A
 
   setAuthSession(authUser);
   return authUser;
+}
+
+
+export interface EmailStatus { email: string; emailVerified: boolean; deliveryConfigured: boolean; deliveryStatus: string; nextResendAt: string | null; }
+export async function getEmailStatus(): Promise<EmailStatus> { return (await accountRequest('email/status')).json(); }
+export async function requestEmailVerification(): Promise<void> { await accountRequest('email/verification', { method: 'POST' }); }
+export async function verifyEmailAddress(token: string): Promise<void> {
+  const session = getAuthToken();
+  if (!session) throw new Error('Sign in to the account that requested this link, then reopen the email link.');
+  const response = await fetch(`${getApiBase()}/auth/email/verify`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session}` }, body: JSON.stringify({ token }), cache: 'no-store',
+  });
+  if (response.status === 401) clearAuthSession();
+  if (!response.ok) throw new Error('The link is expired, invalid, or belongs to a different account. Sign in to the requesting account or request a new link.');
 }

@@ -40,6 +40,12 @@ export function Navbar({ onRefresh }: { onRefresh?: () => void }) {
     window.addEventListener('auth-change', handleAuthChange);
     const handleStorageChange = (event: StorageEvent) => {
       if (event.storageArea === localStorage && (event.key === TOKEN_KEY || event.key === null)) {
+        // Keep the proof held in this page's memory when signing in in another tab.
+        // This page has no selected-workspace data; verification still checks the requesting account.
+        if (window.location.pathname === '/verify-email') {
+          setUser(getAuthUser());
+          return;
+        }
         window.location.assign(event.newValue ? '/workspaces' : '/login');
       }
     };

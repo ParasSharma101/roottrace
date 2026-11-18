@@ -4,17 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { TaskRecoveryPanel } from '@/components/TaskRecoveryPanel';
 import { IngestionKeysPanel } from '@/components/IngestionKeysPanel';
-import { getWorkspaceDetails, inviteWorkspaceMember, WorkspaceDetails } from '@/lib/api';
-import { getAuthUser } from '@/lib/auth';
+import { getWorkspaceDetails, WorkspaceDetails } from '@/lib/api';
+import { EmailVerificationPanel } from '@/components/EmailVerificationPanel';
+import { WorkspaceInvitationsPanel } from '@/components/WorkspaceInvitationsPanel';
+import { EmailStatus, getAuthUser } from '@/lib/auth';
 import { Key, Users, Copy, Check, UserPlus, Shield, UserCheck, Eye, Terminal, Sparkles, Building } from 'lucide-react';
 
 export default function SettingsPage() {
   const [workspace, setWorkspace] = useState<WorkspaceDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('ROLE_SRE');
-  const [inviting, setInviting] = useState(false);
-  const [inviteMsg, setInviteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
 
   const currentUser = getAuthUser();
   const isAdmin = currentUser?.roles?.some(r => r.includes('ADMIN'));
@@ -36,23 +35,7 @@ export default function SettingsPage() {
     fetchWorkspace();
   }, []);
 
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail) return;
-    setInviting(true);
-    setInviteMsg(null);
 
-    try {
-      await inviteWorkspaceMember(inviteEmail, inviteRole);
-      setInviteMsg({ type: 'success', text: `Invitation created for ${inviteEmail}` });
-      setInviteEmail('');
-      await fetchWorkspace();
-    } catch (err: any) {
-      setInviteMsg({ type: 'error', text: err.message || 'Failed to send invite' });
-    } finally {
-      setInviting(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#070b12] text-slate-100 flex flex-col selection:bg-indigo-500/30">
@@ -79,69 +62,14 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left 2 Cols: Ingestion Key & Webhook setup */}
             <div className="lg:col-span-2 space-y-6">
+              <EmailVerificationPanel onChange={setEmailStatus} />
               <IngestionKeysPanel isAdmin={!!isAdmin} />
               {isOperator && <TaskRecoveryPanel />}
             </div>
 
             {/* Right Col: Team Members & Invites */}
             <div className="space-y-6">
-              {/* Invite Member Card */}
-              <div className="p-6 rounded-2xl bg-[#0b101b] border border-slate-800 shadow-xl">
-                <div className="flex items-center gap-2 mb-3">
-                  <UserPlus className="w-4 h-4 text-indigo-400" />
-                  <h2 className="text-sm font-semibold text-slate-200">
-                    Invite Teammate
-                  </h2>
-                </div>
-
-                {!isAdmin ? (
-                  <p className="text-xs text-slate-500 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                    Ask a workspace administrator to invite teammates.
-                  </p>
-                ) : (
-                  <form onSubmit={handleInvite} className="space-y-3">
-                    {inviteMsg && (
-                      <div className={`p-2.5 rounded-lg text-xs ${inviteMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-300 border border-rose-500/30'}`}>
-                        {inviteMsg.text}
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="colleague@company.com"
-                        className="block w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                        Role Assignment
-                      </label>
-                      <select
-                        value={inviteRole}
-                        onChange={(e) => setInviteRole(e.target.value)}
-                        className="block w-full rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
-                      >
-                        <option value="ROLE_SRE">On-Call SRE (Verify & Resolve)</option>
-                        <option value="ROLE_VIEWER">Developer (Read-Only Observer)</option>
-                        <option value="ROLE_ADMIN">Lead / Admin (Full Access)</option>
-                      </select>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={inviting}
-                      className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors disabled:opacity-50"
-                    >
-                      {inviting ? 'Sending Invite...' : 'Send Invitation'}
-                    </button>
-                  </form>
-                )}
-              </div>
+              <WorkspaceInvitationsPanel isAdmin={!!isAdmin} emailVerified={!!emailStatus?.emailVerified} deliveryConfigured={!!emailStatus?.deliveryConfigured} />
 
               {/* Members List */}
               <div className="p-6 rounded-2xl bg-[#0b101b] border border-slate-800 shadow-xl">
