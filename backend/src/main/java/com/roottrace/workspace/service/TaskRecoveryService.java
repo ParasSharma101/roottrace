@@ -2,7 +2,7 @@ package com.roottrace.workspace.service;
 
 import com.roottrace.domain.exception.ResourceNotFoundException;
 import com.roottrace.domain.model.WorkspaceMember;
-import com.roottrace.domain.repository.WorkspaceMemberRepository;
+import com.roottrace.security.service.WorkspaceOperatorAccess;
 import com.roottrace.security.WorkspaceIdentity;
 import jakarta.validation.constraints.*;
 import org.springframework.http.HttpStatus;
@@ -29,8 +29,8 @@ public class TaskRecoveryService {
             rs.getInt("cycle_number"),rs.getInt("previous_attempts"),rs.getInt("total_attempts_before"),rs.getString("previous_error_code"),
             time(rs,"previous_completed_at"),time(rs,"created_at"));
     private final JdbcTemplate jdbc;
-    private final WorkspaceMemberRepository memberships;
-    public TaskRecoveryService(JdbcTemplate jdbc, WorkspaceMemberRepository memberships) { this.jdbc=jdbc; this.memberships=memberships; }
+    private final WorkspaceOperatorAccess access;
+    public TaskRecoveryService(JdbcTemplate jdbc, WorkspaceOperatorAccess access) { this.jdbc=jdbc; this.access=access; }
 
     @Transactional(readOnly = true)
     public Page<TaskView> list(WorkspaceIdentity identity, Status status, Kind kind, UUID before, int limit) {
@@ -97,10 +97,7 @@ public class TaskRecoveryService {
     }
 
     private WorkspaceMember operator(WorkspaceIdentity identity) {
-        UUID workspace=identity.requireWorkspace();
-        return memberships.findByWorkspaceIdAndUserId(workspace,identity.userId())
-                .filter(member -> Set.of("ROLE_ADMIN","ROLE_SRE").contains(member.getRole()) && !member.getWorkspace().isLegacy())
-                .orElseThrow(() -> new AccessDeniedException("Workspace operator required"));
+        return access.require(identity);
     }
     private TaskView owned(UUID workspace,UUID id,boolean lock) {
         var rows=jdbc.query("select "+TASK_COLUMNS+" from durable_tasks where id=? and workspace_id=?"+(lock?" for update":""),TASK_MAPPER,id,workspace);

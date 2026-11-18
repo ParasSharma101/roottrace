@@ -220,3 +220,14 @@ export async function redriveWorkspaceTask(task: WorkspaceTask, reason: string):
     method: 'POST', body: JSON.stringify({ reason, expectedRedriveCount: task.redriveCount }),
   });
 }
+
+
+export interface QueueHealth {
+  observedAt: string; pendingOverdueSeconds: number;
+  queues: Array<{ kind: TaskKind; pending: number; running: number; succeeded: number; failed: number; ready: number;
+    overduePending: number; expiredLeases: number; oldestReadyAgeSeconds: number }>;
+  signals: Array<{ kind: TaskKind; code: 'FAILED_TASKS' | 'OVERDUE_PENDING' | 'EXPIRED_LEASES'; count: number }>;
+}
+export async function getQueueHealth(): Promise<QueueHealth> {
+  return fetchJson(`${API_BASE}/workspace/queue-health`);
+}

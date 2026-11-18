@@ -76,7 +76,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/workspaces", "/api/v1/auth/select-workspace").authenticated()
-                        .requestMatchers("/", "/actuator/**", "/api/v1/auth/**", "/api/v1/simulation/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness").permitAll()
+                        .requestMatchers(org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest.toAnyEndpoint()).denyAll()
+                        .requestMatchers("/actuator", "/actuator/**").denyAll()
+                        .requestMatchers("/", "/api/v1/auth/**", "/api/v1/simulation/**").permitAll()
                         .requestMatchers("/api/v1/workspace/**").hasAnyRole("VIEWER", "SRE", "ADMIN")
                         .requestMatchers("/api/v1/webhooks/**").hasAnyRole("INGESTION_SERVICE", "ADMIN", "SRE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/incidents/**").hasAnyRole("VIEWER", "SRE", "ADMIN")

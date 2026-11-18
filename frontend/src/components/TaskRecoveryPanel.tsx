@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { QueueHealthPanel } from './QueueHealthPanel';
 import { getTaskRedrives, getWorkspaceTask, listWorkspaceTasks, redriveWorkspaceTask,
   TaskKind, TaskRedrive, TaskStatus, WorkspaceTask } from '@/lib/api';
 
@@ -77,6 +78,7 @@ export function TaskRecoveryPanel() {
       <h2 className="text-sm font-semibold text-slate-200">Task recovery</h2>
       <p className="mt-2 text-xs text-slate-400">Review failed ingestion and investigation tasks after fixing the cause. Every retry records your account and reason.</p>
     </div>
+    <QueueHealthPanel />
     <div className="flex flex-wrap gap-2 text-xs">
       <label className="sr-only" htmlFor="task-status">Task status</label>
       <select id="task-status" value={status} disabled={busy || loading} onChange={e => setStatus(e.target.value as TaskStatus)} className="rounded bg-slate-900 border border-slate-700 p-2">
