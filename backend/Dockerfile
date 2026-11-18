@@ -21,7 +21,7 @@ FROM eclipse-temurin:21-jre-alpine AS runner
 WORKDIR /app
 
 # Security: run as non-root user
-RUN addgroup -S roottrace && adduser -S roottrace -G roottrace
+RUN addgroup -S -g 1000 roottrace && adduser -S -u 1000 roottrace -G roottrace
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl

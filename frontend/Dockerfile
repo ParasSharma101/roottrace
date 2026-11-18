@@ -14,6 +14,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG API_PROXY_TARGET=http://localhost:8080
+ENV API_PROXY_TARGET=$API_PROXY_TARGET
+ENV NEXT_PUBLIC_API_URL=/api/v1
 RUN npm run build
 
 # -------------------------------------------------------------

@@ -43,7 +43,7 @@ Settings includes Task recovery for ADMIN/SRE sessions, with status/kind filters
 
 Apply V7 with a coordinated application upgrade. Older workers increment only attempts and are incompatible with the new lifetime-counter constraint; older operator SQL resets bypass the new audit contract. Preserve V1-V6 migrations. No existing development/production database was migrated by these tests. Existing FAILED tasks remain failed until explicitly recovered.
 
-Use the authenticated recovery API as the normal redrive path. Direct SQL changes bypass actor/reason auditing and concurrency guards. Queue dashboards/alerts, retention policy, per-workspace quotas/fairness, production broker authentication/ACLs/TLS, and DLQ replay tooling remain separate work. This API recovers existing FAILED tasks; it does not replay DLQ records or create an investigation job for a historical incident without one. Production readiness remains incomplete.
+Use the authenticated recovery API as the normal redrive path. Direct SQL changes bypass actor/reason auditing and concurrency guards. Workspace queue health indicators are now available in Settings; see QUEUE_MONITORING.md. The self-hosted broker configuration is covered by KAFKA_SECURITY.md. External alert delivery, retention policy, per-workspace quotas/fairness, and DLQ replay tooling remain separate work. This API recovers existing FAILED tasks; it does not replay DLQ records or create an investigation job for a historical incident without one. Production readiness remains incomplete.
 
 ## Verification
 

@@ -137,7 +137,7 @@ Backend will start on `http://localhost:8080`.
 
 Password login now leads to explicit workspace selection; signup selects the workspace just created. Users can switch memberships from the navbar. Previous-format sessions require a fresh login. See [the workspace design](backend/WORKSPACE_DESIGN.md) for the API contract and remaining tenant-isolation work. Incident/telemetry isolation is still incomplete, so this increment is not ready for public multi-tenant deployment.
 
-Incident APIs now enforce selected workspace ownership, and V3 preserves unassigned prototype incidents in the legacy workspace. V5 preserves historical logs/deployments in legacy quarantine and adds workspace-scoped evidence queries and Redis incident contexts. Named keys now authenticate log/alert webhooks, with server-owned workspace envelopes carried through Kafka and consumers. V6 adds durable outbox submissions, optional HTTP idempotency keys, consumer replay receipts, and leased investigation jobs. A 202 confirms database queuing; see [durable processing](backend/DURABLE_PIPELINE.md) for status APIs and retry limits. V7 adds workspace-scoped, audited task recovery in Settings for ADMIN/SRE sessions; see [operator recovery](backend/TASK_RECOVERY.md). Production broker security, monitoring/retention, and deployment ingestion remain unfinished. See [workspace design](backend/WORKSPACE_DESIGN.md) for migration and rollout constraints.
+Incident APIs now enforce selected workspace ownership, and V3 preserves unassigned prototype incidents in the legacy workspace. V5 preserves historical logs/deployments in legacy quarantine and adds workspace-scoped evidence queries and Redis incident contexts. Named keys now authenticate log/alert webhooks, with server-owned workspace envelopes carried through Kafka and consumers. V6 adds durable outbox submissions, optional HTTP idempotency keys, consumer replay receipts, and leased investigation jobs. A 202 confirms database queuing; see [durable processing](backend/DURABLE_PIPELINE.md) for status APIs and retry limits. V7 adds workspace-scoped, audited task recovery in Settings for ADMIN/SRE sessions; see [operator recovery](backend/TASK_RECOVERY.md). Workspace queue monitoring is available in Settings. Self-hosted production Compose now supplies private TLS/ACL broker configuration; see [Kafka rollout requirements](backend/KAFKA_SECURITY.md). Certificate lifecycle, public HTTPS ingress, monitoring integrations/retention, and deployment ingestion remain unfinished. See [workspace design](backend/WORKSPACE_DESIGN.md) for migration and rollout constraints.
 
 Workspace administrators can manage multiple named credentials in Settings, with one-time secret display and independent revocation. V4 retires the old plaintext workspace-key field. Named credentials authenticate webhook ingestion via X-RootTrace-Key; see [the credential contract and rollout boundaries](backend/INGESTION_KEYS.md).
 
@@ -155,14 +155,14 @@ Frontend will be available at `http://localhost:3000`.
 
 Supply independent `ROOTTRACE_JWT_SECRET`, `ROOTTRACE_INGESTION_KEY`, and `POSTGRES_PASSWORD` values before deployment. Signing and ingestion secrets must be non-default values of at least 32 UTF-8 bytes. Missing or invalid security configuration prevents startup. Break-glass access is disabled in production. See [backend/SECURITY.md](backend/SECURITY.md) for configuration, rotation, and remaining deployment limitations.
 
-To launch the full 5-tier production environment (Postgres + Redis + Kafka + Spring Boot + Next.js):
+Before launching the self-hosted Compose stack, prepare reviewed Kafka credentials and storage identity as described in [the Kafka security runbook](backend/KAFKA_SECURITY.md). Existing broker volumes require a coordinated upgrade; this command is not an automatic migration.
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 Access the application:
 - Next.js SRE Console: `http://localhost:3000`
 - Spring Boot REST API: `http://localhost:8080`
-- Actuator Health Check: `http://localhost:8080/actuator/health`
+- Minimal health status: `http://localhost:8080/actuator/health`; global Actuator diagnostics are not available to workspace sessions.
 
 ---
 

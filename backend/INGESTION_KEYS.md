@@ -55,7 +55,7 @@ A 202 now confirms atomic PostgreSQL storage of the submission and its outbox ev
 
 ## Trust and rollout boundary
 
-Envelope ownership is trusted broker metadata, not a cryptographic signature. Kafka must be private and producer access restricted to trusted application components; anyone allowed to publish arbitrary envelopes can assert workspace IDs. Local prototype broker settings do not establish production broker authentication/ACLs/TLS. Do not expose the broker to customer producers or the public internet. Production infrastructure hardening is still required.
+Envelope ownership is trusted broker metadata, not a cryptographic signature. Kafka must be private and producer access restricted to trusted application components; anyone allowed to publish arbitrary envelopes can assert workspace IDs. Local prototype broker settings do not establish production broker authentication/ACLs/TLS. Do not expose the broker to customer producers or the public internet. Self-hosted Compose now supplies mTLS/ACL broker configuration and network isolation; see [KAFKA_SECURITY.md](KAFKA_SECURITY.md) for provisioning, storage migration, and remaining production obligations.
 
 V5 supplies workspace-owned log/deployment persistence and scoped correlation, timeline/export, and Redis incident contexts. Upgrade consumers/readers before enabling new envelope-producing nodes, with old writers stopped/drained; old consumers cannot safely interpret the new format. Use a coordinated rollout, not mixed application versions. Historical AI provenance and tenant-specific GitHub integrations remain separate review items. No real development/production database migration or infrastructure deployment was performed by these tests.
 
