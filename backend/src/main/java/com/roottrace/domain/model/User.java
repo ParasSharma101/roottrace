@@ -27,6 +27,14 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name="verified_email",length=255)
+    private String verifiedEmail;
+    @Column(name="email_verified_at")
+    private Instant emailVerifiedAt;
+    public boolean isEmailVerified() {
+        return emailVerifiedAt!=null && verifiedEmail!=null && verifiedEmail.equals(email.toLowerCase(java.util.Locale.ROOT).strip());
+    }
+
     public User() {}
 
     public User(String email, String passwordHash, String fullName) {
@@ -50,6 +58,7 @@ public class User {
     }
 
     public void setEmail(String email) {
+        verifiedEmail=null; emailVerifiedAt=null;
         this.email = email != null ? email.toLowerCase().trim() : null;
     }
 

@@ -75,6 +75,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/v1/auth/invitations/**", "/api/v1/auth/invitations", "/api/v1/auth/email/status", "/api/v1/auth/email/verification", "/api/v1/auth/email/verify").authenticated()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/workspaces", "/api/v1/auth/select-workspace").authenticated()
                         .requestMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness").permitAll()
                         .requestMatchers(org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest.toAnyEndpoint()).denyAll()

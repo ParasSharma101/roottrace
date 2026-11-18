@@ -7,6 +7,7 @@ public record AuthResponse(
         String token,
         UUID userId,
         String email,
+        boolean emailVerified,
         String fullName,
         List<String> roles,
         UUID workspaceId,

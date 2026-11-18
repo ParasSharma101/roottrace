@@ -155,6 +155,8 @@ Frontend will be available at `http://localhost:3000`.
 
 Supply independent `ROOTTRACE_JWT_SECRET`, `ROOTTRACE_INGESTION_KEY`, and `POSTGRES_PASSWORD` values before deployment. Signing and ingestion secrets must be non-default values of at least 32 UTF-8 bytes. Missing or invalid security configuration prevents startup. Break-glass access is disabled in production. See [backend/SECURITY.md](backend/SECURITY.md) for configuration, rotation, and remaining deployment limitations.
 
+Email verification and pending workspace invitations now use an encrypted durable SMTP outbox. Administrators must verify their email; recipients must verify the invited address and explicitly accept. Mail defaults off until configured. See [email setup and rollout](backend/EMAIL_INVITATIONS.md), including the optional local mail catcher. Password reset, session revocation and membership management remain pending.
+
 Before launching the self-hosted Compose stack, prepare reviewed Kafka credentials and storage identity as described in [the Kafka security runbook](backend/KAFKA_SECURITY.md). Existing broker volumes require a coordinated upgrade; this command is not an automatic migration.
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build

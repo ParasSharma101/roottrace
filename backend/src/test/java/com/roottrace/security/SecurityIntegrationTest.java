@@ -129,7 +129,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     }
 
     @Test
-    @DisplayName("POST /api/v1/workspace/invites - ADMIN can invite team members to workspace")
+    @DisplayName("Legacy demo membership cannot issue real invitations")
     void testWorkspaceInvite() throws Exception {
         String adminToken = authService.demoLogin(new DemoLoginRequest("ADMIN")).token();
         InviteMemberRequest inviteReq = new InviteMemberRequest("newdev@roottrace.io", "ROLE_SRE");
@@ -138,10 +138,7 @@ class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(inviteReq)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email").value("newdev@roottrace.io"))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.token").isNotEmpty());
+                .andExpect(status().isForbidden());
     }
 
     @Test

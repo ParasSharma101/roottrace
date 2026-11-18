@@ -52,3 +52,7 @@ Operator recovery: /api/v1/workspace/tasks requires selected ADMIN/SRE sessions 
 Queue monitoring uses the same current operator-membership check as recovery and exposes workspace aggregates only. Public Actuator routes expose minimal default health probes; other diagnostics/discovery are denied independently of the configured endpoint base path. Workspace ADMIN never grants platform metric access. See [QUEUE_MONITORING.md](QUEUE_MONITORING.md).
 
 The self-hosted Compose broker now requires client TLS identity and resource ACLs, with private service networks and distinct broker/bootstrap/backend keys. No live stack upgrade was performed. Certificate custody/rotation, HTTPS ingress, patch review and broader production readiness remain as described in [KAFKA_SECURITY.md](KAFKA_SECURITY.md).
+
+## Verified email and invitation consent
+
+V8 retires plaintext invitation tokens, revokes old pending invitations and preserves existing memberships. New membership requires authenticated explicit acceptance by an account with a verified matching email; the invitation ID alone grants nothing. Verification requires both the emailed token and its requesting account session, and issues no JWT. Proofs are hashed; retryable mail bodies use separately keyed AES-GCM and are scrubbed after send/cancellation. SMTP is opt-in with production TLS/authentication validation. See [EMAIL_INVITATIONS.md](EMAIL_INVITATIONS.md) for migration, configuration, recovery and account lifecycle limits.

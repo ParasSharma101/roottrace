@@ -6,6 +6,7 @@ import java.util.UUID;
 public record UserProfileDto(
         UUID userId,
         String email,
+        boolean emailVerified,
         String fullName,
         List<String> roles,
         UUID workspaceId,

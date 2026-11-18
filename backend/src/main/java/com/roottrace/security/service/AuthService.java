@@ -37,6 +37,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final WorkspaceAccessPolicy accessPolicy;
+    private final EmailVerificationService verification;
 
     public AuthService(
             UserRepository userRepository,
@@ -44,7 +45,7 @@ public class AuthService {
             WorkspaceMemberRepository workspaceMemberRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider tokenProvider,
-            WorkspaceAccessPolicy accessPolicy
+            WorkspaceAccessPolicy accessPolicy, EmailVerificationService verification
     ) {
         this.userRepository = userRepository;
         this.workspaceRepository = workspaceRepository;
@@ -52,6 +53,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.accessPolicy = accessPolicy;
+        this.verification=verification;
     }
 
     @Transactional
@@ -82,6 +84,8 @@ public class AuthService {
         WorkspaceMember member = new WorkspaceMember(workspace, user, UserRole.ROLE_ADMIN.name());
         workspaceMemberRepository.save(member);
 
+        userRepository.flush();
+        verification.afterSignup(user.getId());
         return response(user, member);
     }
 
@@ -139,7 +143,7 @@ public class AuthService {
                 .findByWorkspaceIdAndUserId(identity.workspaceId(), identity.userId())
                 .orElseThrow(() -> new AccessDeniedException("Membership unavailable"));
         Workspace ws = member == null ? null : member.getWorkspace();
-        return new UserProfileDto(user.getId(), user.getEmail(), user.getFullName(), identity.roles(),
+        return new UserProfileDto(user.getId(), user.getEmail(), user.isEmailVerified(), user.getFullName(), identity.roles(),
                 ws == null ? null : ws.getId(), ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
                 null, false);
     }
@@ -149,7 +153,7 @@ public class AuthService {
         var identity = new WorkspaceIdentity(user.getId(), user.getEmail(), user.getFullName(),
                 ws == null ? null : ws.getId(), member == null ? null : member.getRole());
         return new AuthResponse(tokenProvider.generateToken(user.getId(), identity.workspaceId()),
-                user.getId(), user.getEmail(), user.getFullName(), identity.roles(), identity.workspaceId(),
+                user.getId(), user.getEmail(), user.isEmailVerified(), user.getFullName(), identity.roles(), identity.workspaceId(),
                 ws == null ? null : ws.getName(), ws == null ? null : ws.getSlug(),
                 null);
     }
