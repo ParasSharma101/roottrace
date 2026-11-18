@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
+import { TaskRecoveryPanel } from '@/components/TaskRecoveryPanel';
 import { IngestionKeysPanel } from '@/components/IngestionKeysPanel';
 import { getWorkspaceDetails, inviteWorkspaceMember, WorkspaceDetails } from '@/lib/api';
 import { getAuthUser } from '@/lib/auth';
@@ -17,6 +18,7 @@ export default function SettingsPage() {
 
   const currentUser = getAuthUser();
   const isAdmin = currentUser?.roles?.some(r => r.includes('ADMIN'));
+  const isOperator = currentUser?.roles?.some(r => r === 'ROLE_ADMIN' || r === 'ROLE_SRE');
 
   const fetchWorkspace = async () => {
     try {
@@ -65,7 +67,7 @@ export default function SettingsPage() {
             </h1>
           </div>
           <p className="text-xs text-slate-400">
-            Manage your telemetry ingestion keys, webhook endpoints, and team member permissions.
+            Manage ingestion keys, recover failed tasks, and review team permissions.
           </p>
         </div>
 
@@ -78,6 +80,7 @@ export default function SettingsPage() {
             {/* Left 2 Cols: Ingestion Key & Webhook setup */}
             <div className="lg:col-span-2 space-y-6">
               <IngestionKeysPanel isAdmin={!!isAdmin} />
+              {isOperator && <TaskRecoveryPanel />}
             </div>
 
             {/* Right Col: Team Members & Invites */}
@@ -93,7 +96,7 @@ export default function SettingsPage() {
 
                 {!isAdmin ? (
                   <p className="text-xs text-slate-500 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
-                    Only workspace administrators can invite new members. Switch to an Admin persona or ask your team lead.
+                    Ask a workspace administrator to invite teammates.
                   </p>
                 ) : (
                   <form onSubmit={handleInvite} className="space-y-3">

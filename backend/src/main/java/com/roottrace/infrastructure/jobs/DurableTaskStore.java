@@ -38,7 +38,7 @@ public class DurableTaskStore {
                     or (status='RUNNING' and lease_until<=current_timestamp))
                 order by available_at, created_at, id for update skip locked limit 1
             )
-            update durable_tasks t set status='RUNNING', attempts=attempts+1, claim_token=?,
+            update durable_tasks t set status='RUNNING', attempts=attempts+1, total_attempts=total_attempts+1, claim_token=?,
                 lease_until=current_timestamp + interval '5 minutes'
             from candidate c where t.id=c.id
             returning t.id,t.workspace_id,t.incident_id,t.topic,t.partition_key,t.event_payload,t.attempts

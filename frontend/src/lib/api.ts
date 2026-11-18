@@ -187,3 +187,36 @@ export async function revokeIngestionKey(id: string): Promise<void> {
   });
   if (!response.ok) throw new Error('Unable to revoke this key');
 }
+
+
+export type TaskStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+export type TaskKind = 'PUBLISH' | 'INVESTIGATE';
+export interface WorkspaceTask {
+  id: string; kind: TaskKind; status: TaskStatus; submissionId: string | null; incidentId: string | null;
+  attempts: number; totalAttempts: number; redriveCount: number; availableAt: string; leaseUntil: string | null;
+  lastErrorCode: string | null; createdAt: string; completedAt: string | null;
+}
+export interface TaskRedrive {
+  id: string; taskId: string; actorUserId: string | null; actorEmail: string; reason: string; cycleNumber: number;
+  previousAttempts: number; totalAttemptsBefore: number; previousErrorCode: string | null;
+  previousCompletedAt: string | null; createdAt: string;
+}
+export interface CursorPage<T> { items: T[]; nextCursor: string | null; }
+export async function listWorkspaceTasks(status: TaskStatus, kind?: TaskKind, before?: string): Promise<CursorPage<WorkspaceTask>> {
+  const params = new URLSearchParams({ status });
+  if (kind) params.set('kind', kind);
+  if (before) params.set('before', before);
+  return fetchJson(`${API_BASE}/workspace/tasks?${params}`);
+}
+export async function getWorkspaceTask(id: string): Promise<WorkspaceTask> {
+  return fetchJson(`${API_BASE}/workspace/tasks/${encodeURIComponent(id)}`);
+}
+export async function getTaskRedrives(id: string, before?: string): Promise<CursorPage<TaskRedrive>> {
+  const suffix = before ? `?before=${encodeURIComponent(before)}` : '';
+  return fetchJson(`${API_BASE}/workspace/tasks/${encodeURIComponent(id)}/redrives${suffix}`);
+}
+export async function redriveWorkspaceTask(task: WorkspaceTask, reason: string): Promise<WorkspaceTask> {
+  return fetchJson(`${API_BASE}/workspace/tasks/${encodeURIComponent(task.id)}/redrive`, {
+    method: 'POST', body: JSON.stringify({ reason, expectedRedriveCount: task.redriveCount }),
+  });
+}
