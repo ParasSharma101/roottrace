@@ -60,3 +60,7 @@ V8 retires plaintext invitation tokens, revokes old pending invitations and pres
 ## Account recovery and revocation
 
 V9 adds asynchronous encrypted recovery intake, hashed single-use reset links, server-side session-family revocation and account-wide authentication epochs. Password reset atomically changes the password, proves the matching email, retires outstanding recovery/verification links, revokes sessions and queues notification. JWT version 3 is required; workspace selection cannot extend expiry or escape revocation. New passwords require 15 Unicode code points and at most 72 UTF-8 bytes; existing passwords remain usable. See [ACCOUNT_RECOVERY.md](ACCOUNT_RECOVERY.md) for coordinated rollout, direct-peer rate limits/proxy constraints, key custody and remaining lifecycle work.
+
+## Audited membership management
+
+V10 requires current database membership and verified administrator email for role changes and removal of other members. Members can leave themselves, while concurrent changes cannot remove/demote the final administrator through these APIs. Exact membership identity/version and reason are required. Removal atomically revokes invitations to that address in the workspace and appends audit history; a failed audit rolls everything back. Invitation operations now share the mutation lock order. Account/session row locks use NO KEY UPDATE to remain compatible with audit foreign-key references. See [MEMBERSHIP_MANAGEMENT.md](MEMBERSHIP_MANAGEMENT.md) for authorization, retention and operator boundaries.

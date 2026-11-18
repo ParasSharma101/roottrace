@@ -31,7 +31,7 @@ public class PasswordRecoveryService {
     public void request(String suppliedEmail) {
         if(!mail.enabled) return;
         String email=suppliedEmail.strip().toLowerCase(Locale.ROOT);
-        var users=jdbc.queryForList("select id from users where email=? for update",email);
+        var users=jdbc.queryForList("select id from users where email=? for no key update",email);
         // This runs only in the private worker, after the public acknowledgement.
         byte[] bytes=new byte[32]; random.nextBytes(bytes);
         String token="rt_rst_"+Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -55,7 +55,7 @@ public class PasswordRecoveryService {
         var found=jdbc.queryForList("select user_id from password_resets where token_hash=?",PayloadDigest.hash(token));
         if(found.isEmpty()) throw invalid();
         UUID user=(UUID)found.getFirst().get("user_id");
-        var users=jdbc.queryForList("select email from users where id=? for update",user);
+        var users=jdbc.queryForList("select email from users where id=? for no key update",user);
         var rows=jdbc.queryForList("select *,expires_at>clock_timestamp() as valid_time from password_resets where token_hash=? for update",PayloadDigest.hash(token));
         var reset=rows.getFirst();
         if(users.isEmpty() || reset.get("consumed_at")!=null || reset.get("revoked_at")!=null || !Boolean.TRUE.equals(reset.get("valid_time"))

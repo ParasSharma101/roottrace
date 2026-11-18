@@ -34,14 +34,18 @@ public class InvitationService {
     private final MailSettings mail;
     private final MailOutbox outbox;
     private final int hourlyLimit;
+    private final MembershipAccess access;
+    private final com.roottrace.security.service.SessionRevocationService sessions;
     public InvitationService(JdbcTemplate jdbc,WorkspaceMemberRepository members,MailSettings mail,MailOutbox outbox,
-            @Value("${roottrace.invites.hourly-limit:100}") int hourlyLimit) {
+            @Value("${roottrace.invites.hourly-limit:100}") int hourlyLimit,MembershipAccess access,com.roottrace.security.service.SessionRevocationService sessions) {
         if(hourlyLimit<1) throw new IllegalArgumentException("Invitation hourly limit must be positive");
         this.jdbc=jdbc; this.members=members; this.mail=mail; this.outbox=outbox; this.hourlyLimit=hourlyLimit;
+        this.access=access; this.sessions=sessions;
     }
 
     @Transactional
     public Invitation create(WorkspaceIdentity identity,InviteMemberRequest request) {
+        access.lockAdmin(identity,true);
         WorkspaceMember admin=admin(identity);
         if(!admin.getUser().isEmailVerified()) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Verify your email before inviting teammates");
         mail.requireEnabled();
@@ -49,7 +53,6 @@ public class InvitationService {
         String role=request.role().toUpperCase(Locale.ROOT).strip(); if(!role.startsWith("ROLE_")) role="ROLE_"+role;
         if(!Set.of("ROLE_ADMIN","ROLE_SRE","ROLE_VIEWER").contains(role)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Invalid invitation role");
         UUID workspace=admin.getWorkspace().getId();
-        jdbc.queryForObject("select id from workspaces where id=? for no key update",UUID.class,workspace);
         if(Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from workspace_members m join users u on u.id=m.user_id where m.workspace_id=? and lower(trim(u.email))=?)",Boolean.class,workspace,email))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,"This address already belongs to a workspace member");
         }
@@ -80,6 +83,7 @@ public class InvitationService {
 
     @Transactional
     public void revoke(WorkspaceIdentity identity,UUID id) {
+        access.lockAdmin(identity,false);
         UUID workspace=admin(identity).getWorkspace().getId();
         var rows=jdbc.queryForList("select status from workspace_invites where id=? and workspace_id=? for update",id,workspace);
         if(rows.isEmpty()) throw missing();
@@ -108,7 +112,11 @@ public class InvitationService {
 
     @Transactional
     public Accepted accept(WorkspaceIdentity identity,UUID id) {
+        sessions.lockActive(identity);
         String email=verifiedEmail(identity.userId(),true);
+        var ownership=jdbc.queryForList("select workspace_id from workspace_invites where id=? and email=?",id,email);
+        if(ownership.isEmpty()) throw missing();
+        access.lockWorkspace((UUID)ownership.getFirst().get("workspace_id"));
         var rows=jdbc.queryForList("select i.* from workspace_invites i join workspaces w on w.id=i.workspace_id where i.id=? and i.email=? and not w.is_legacy for update of i",id,email);
         if(rows.isEmpty()) throw missing();
         var invite=rows.getFirst(); UUID workspace=(UUID)invite.get("workspace_id");
@@ -131,7 +139,7 @@ public class InvitationService {
         return new Accepted(workspace,rows.getFirst().get("name").toString(),rows.getFirst().get("role").toString());
     }
     private String verifiedEmail(UUID user,boolean lock) {
-        var rows=jdbc.queryForList("select email,verified_email,email_verified_at from users where id=?"+(lock?" for update":""),user);
+        var rows=jdbc.queryForList("select email,verified_email,email_verified_at from users where id=?"+(lock?" for no key update":""),user);
         if(rows.isEmpty()) throw new AccessDeniedException("Account unavailable");
         var row=rows.getFirst(); String email=row.get("email").toString().toLowerCase(Locale.ROOT).strip();
         if(row.get("email_verified_at")==null || !email.equals(row.get("verified_email"))) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Verify the invited email before joining");

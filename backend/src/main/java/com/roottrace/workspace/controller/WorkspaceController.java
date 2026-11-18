@@ -43,11 +43,11 @@ public class WorkspaceController {
                         m.getUser().getFullName(),
                         m.getUser().getEmail(),
                         m.getRole(),
-                        m.getCreatedAt()
+                        m.getCreatedAt(),m.getId(),m.getVersion()
                 ))
                 .toList();
 
-        return ResponseEntity.ok(new WorkspaceDetailsDto(
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(new WorkspaceDetailsDto(
                 ws.getId(),
                 ws.getName(),
                 ws.getSlug(),

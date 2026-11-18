@@ -27,7 +27,7 @@ public class EmailVerificationService {
     public void request(WorkspaceIdentity identity) { settings.requireEnabled(); issue(identity.userId()); }
 
     private void issue(UUID userId) {
-        var users=jdbc.queryForList("select id,email,verified_email,email_verified_at from users where id=? for update",userId);
+        var users=jdbc.queryForList("select id,email,verified_email,email_verified_at from users where id=? for no key update",userId);
         if(users.isEmpty()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Account unavailable");
         var user=users.getFirst(); String email=user.get("email").toString().toLowerCase(Locale.ROOT).strip();
         if(user.get("email_verified_at")!=null && email.equals(user.get("verified_email"))) return;
@@ -51,7 +51,7 @@ public class EmailVerificationService {
         var found=jdbc.queryForList("select user_id from email_verifications where token_hash=? and user_id=?",PayloadDigest.hash(token),identity.userId());
         if(found.isEmpty()) throw invalid();
         UUID userId=(UUID)found.getFirst().get("user_id");
-        var users=jdbc.queryForList("select email,verified_email,email_verified_at from users where id=? for update",userId);
+        var users=jdbc.queryForList("select email,verified_email,email_verified_at from users where id=? for no key update",userId);
         var rows=jdbc.queryForList("select * from email_verifications where token_hash=? for update",PayloadDigest.hash(token));
         var challenge=rows.getFirst();
         if(users.isEmpty() || !users.getFirst().get("email").toString().toLowerCase(Locale.ROOT).strip().equals(challenge.get("email"))

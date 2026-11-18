@@ -20,7 +20,7 @@ public class SessionRevocationService {
 
     @Transactional(propagation=Propagation.MANDATORY)
     public void lockActive(WorkspaceIdentity identity) {
-        var rows=jdbc.queryForList("select auth_epoch from users where id=? for update",identity.userId());
+        var rows=jdbc.queryForList("select auth_epoch from users where id=? for no key update",identity.userId());
         if(identity.sessionId()==null || identity.sessionExpiresAt()==null || rows.isEmpty()
                 || ((Number)rows.getFirst().get("auth_epoch")).longValue()!=identity.authEpoch()
                 || isRevoked(identity.sessionId()) || !identity.sessionExpiresAt().isAfter(java.time.Instant.now())) {

@@ -29,6 +29,10 @@ public class WorkspaceMember {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+    @Version
+    @Column(name="version",nullable=false)
+    private long version;
+    public long getVersion() { return version; }
 
     public WorkspaceMember() {}
 

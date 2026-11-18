@@ -8,5 +8,7 @@ public record TeamMemberDto(
         String fullName,
         String email,
         String role,
-        Instant joinedAt
+        Instant joinedAt,
+        UUID membershipId,
+        long version
 ) {}
