@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Stage 1: Install Dependencies
 # -------------------------------------------------------------
-FROM node:24.22.3-alpine AS deps
+FROM node:26.13.1-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
@@ -9,7 +9,7 @@ RUN npm ci --ignore-scripts
 # -------------------------------------------------------------
 # Stage 2: Build Next.js Application
 # -------------------------------------------------------------
-FROM node:24.22.3-alpine AS builder
+FROM node:26.13.1-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -22,7 +22,7 @@ RUN npm run build
 # -------------------------------------------------------------
 # Stage 3: Production Runner
 # -------------------------------------------------------------
-FROM node:24.22.3-alpine AS runner
+FROM node:26.13.1-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
