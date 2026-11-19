@@ -1,7 +1,7 @@
 # -------------------------------------------------------------
 # Stage 1: Build Application with Maven and Eclipse Temurin JDK 21
 # -------------------------------------------------------------
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
+FROM maven:3.9-eclipse-temurin-26-alpine AS builder
 
 WORKDIR /build
 
