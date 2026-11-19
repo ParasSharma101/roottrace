@@ -1,5 +1,8 @@
 package com.roottrace.infrastructure.kafka.consumers;
 
+import com.roottrace.ingestion.service.IngestionEventCodec;
+import com.fasterxml.jackson.core.JsonProcessingException;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roottrace.domain.model.LogEvent;
 import com.roottrace.domain.model.LogLevel;
@@ -25,13 +28,17 @@ public class LogEventConsumer {
     private final LogEventRepository logEventRepository;
     private final EventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
+    private final IngestionEventCodec codec;
+    private final com.roottrace.ingestion.service.IngestionInbox inbox;
 
     public LogEventConsumer(LogEventRepository logEventRepository,
                             EventPublisher eventPublisher,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper, IngestionEventCodec codec, com.roottrace.ingestion.service.IngestionInbox inbox) {
         this.logEventRepository = logEventRepository;
         this.eventPublisher = eventPublisher;
         this.objectMapper = objectMapper;
+        this.codec = codec;
+        this.inbox = inbox;
     }
 
     @KafkaListener(
@@ -47,7 +54,12 @@ public class LogEventConsumer {
 
         for (ConsumerRecord<String, String> record : records) {
             try {
-                RawLogRequest request = objectMapper.readValue(record.value(), RawLogRequest.class);
+                var decoded = codec.decode(record.value(), "LOG");
+                RawLogRequest request = objectMapper.treeToValue(decoded.payload(), RawLogRequest.class);
+                if (request.serviceName() == null || request.serviceName().isBlank() || request.serviceName().length() > 128
+                        || request.timestamp() == null || request.logLevel() == null || request.message() == null || request.message().isBlank()) {
+                    throw new IllegalArgumentException("Invalid log payload");
+                }
 
                 LogLevel level;
                 try {
@@ -67,15 +79,17 @@ public class LogEventConsumer {
                         metadataJson
                 );
 
+                if (!inbox.firstDelivery(decoded, "LOG", record)) continue;
+                event.setWorkspaceId(decoded.workspaceId());
                 eventsToPersist.add(event);
-            } catch (Exception ex) {
+            } catch (JsonProcessingException | IllegalArgumentException ex) {
                 log.error("Failed to parse log record at partition {} offset {}. Routing to DLQ: {}",
                         record.partition(), record.offset(), ex.getMessage());
                 eventPublisher.publish(
                         KafkaTopicConfig.RAW_LOGS_DLQ_TOPIC,
                         record.key(),
                         record.value()
-                );
+                ).join();
             }
         }
 

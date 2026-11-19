@@ -36,6 +36,21 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  mail:
+    host: ${ROOTTRACE_SMTP_HOST:localhost}
+    port: ${ROOTTRACE_SMTP_PORT:587}
+    username: ${ROOTTRACE_SMTP_USERNAME:}
+    password: ${ROOTTRACE_SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${ROOTTRACE_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${ROOTTRACE_SMTP_STARTTLS:true}
+      mail.smtp.starttls.required: ${ROOTTRACE_SMTP_STARTTLS:true}
+      mail.smtp.ssl.enable: ${ROOTTRACE_SMTP_SSL:false}
+      mail.smtp.ssl.checkserveridentity: true
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -61,20 +76,36 @@ gemini:
   model: ${GEMINI_MODEL:gemini-1.5-flash}
 
 roottrace:
+  mail:
+    enabled: ${ROOTTRACE_MAIL_ENABLED:false}
+    scheduling:
+      enabled: ${ROOTTRACE_MAIL_SCHEDULING_ENABLED:true}
+    from: ${ROOTTRACE_MAIL_FROM:roottrace@localhost.invalid}
+    public-base-url: ${ROOTTRACE_PUBLIC_APP_URL:}
+    encryption-key: ${ROOTTRACE_MAIL_ENCRYPTION_KEY:}
+  demo:
+    enabled: ${ROOTTRACE_DEMO_ENABLED:false}
   security:
     jwt:
-      secret: ${ROOTTRACE_JWT_SECRET:roottrace-super-secret-jwt-signing-key-minimum-256-bits-for-hs256-security!}
+      secret: ${ROOTTRACE_JWT_SECRET:}
       expiration-ms: ${ROOTTRACE_JWT_EXPIRATION_MS:86400000}
     ingestion:
-      api-key: ${ROOTTRACE_INGESTION_KEY:roottrace_dev_secret_key}
+      api-key: ${ROOTTRACE_INGESTION_KEY:}
     break-glass:
-      token: ${ROOTTRACE_BREAKGLASS_TOKEN:roottrace_emergency_breakglass_token}
+      enabled: ${ROOTTRACE_BREAKGLASS_ENABLED:false}
+      token: ${ROOTTRACE_BREAKGLASS_TOKEN:}
 
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when_authorized
+      show-details: never
+      show-components: never
+      probes:
+        enabled: true

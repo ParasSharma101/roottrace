@@ -131,9 +131,15 @@ GITHUB_TOKEN=your_optional_github_token
 ### 3. Run Backend Application
 ```bash
 cd backend
-./mvnw clean spring-boot:run
+./mvnw -Dspring-boot.run.profiles=dev clean spring-boot:run
 ```
 Backend will start on `http://localhost:8080`.
+
+Password login now leads to explicit workspace selection; signup selects the workspace just created. Users can switch memberships from the navbar. Previous-format sessions require a fresh login. See [the workspace design](backend/WORKSPACE_DESIGN.md) for the API contract and remaining tenant-isolation work. Incident/telemetry isolation is still incomplete, so this increment is not ready for public multi-tenant deployment.
+
+Incident APIs now enforce selected workspace ownership, and V3 preserves unassigned prototype incidents in the legacy workspace. V5 preserves historical logs/deployments in legacy quarantine and adds workspace-scoped evidence queries and Redis incident contexts. Named keys now authenticate log/alert webhooks, with server-owned workspace envelopes carried through Kafka and consumers. V6 adds durable outbox submissions, optional HTTP idempotency keys, consumer replay receipts, and leased investigation jobs. A 202 confirms database queuing; see [durable processing](backend/DURABLE_PIPELINE.md) for status APIs and retry limits. V7 adds workspace-scoped, audited task recovery in Settings for ADMIN/SRE sessions; see [operator recovery](backend/TASK_RECOVERY.md). Workspace queue monitoring is available in Settings. Self-hosted production Compose now supplies private TLS/ACL broker configuration; see [Kafka rollout requirements](backend/KAFKA_SECURITY.md). Certificate lifecycle, public HTTPS ingress, monitoring integrations/retention, and deployment ingestion remain unfinished. See [workspace design](backend/WORKSPACE_DESIGN.md) for migration and rollout constraints.
+
+Workspace administrators can manage multiple named credentials in Settings, with one-time secret display and independent revocation. V4 retires the old plaintext workspace-key field. Named credentials authenticate webhook ingestion via X-RootTrace-Key; see [the credential contract and rollout boundaries](backend/INGESTION_KEYS.md).
 
 ### 4. Run Frontend Dashboard
 ```bash
@@ -147,32 +153,35 @@ Frontend will be available at `http://localhost:3000`.
 
 ## Production Docker Deployment
 
-To launch the full 5-tier production environment (Postgres + Redis + Kafka + Spring Boot + Next.js):
+Supply independent `ROOTTRACE_JWT_SECRET`, `ROOTTRACE_INGESTION_KEY`, and `POSTGRES_PASSWORD` values before deployment. Signing and ingestion secrets must be non-default values of at least 32 UTF-8 bytes. Missing or invalid security configuration prevents startup. Break-glass access is disabled in production. See [backend/SECURITY.md](backend/SECURITY.md) for configuration, rotation, and remaining deployment limitations.
+
+Email verification and pending workspace invitations now use an encrypted durable SMTP outbox. Administrators must verify their email; recipients must verify the invited address and explicitly accept. Mail defaults off until configured. See [email setup and rollout](backend/EMAIL_INVITATIONS.md), including the optional local mail catcher. Password recovery and server-side current/all-session sign-out are implemented; see [account recovery and session rollout](backend/ACCOUNT_RECOVERY.md). Audited role changes, member removal and self-departure now protect the last administrator; see [membership management](backend/MEMBERSHIP_MANAGEMENT.md).
+
+Before launching the self-hosted Compose stack, prepare reviewed Kafka credentials and storage identity as described in [the Kafka security runbook](backend/KAFKA_SECURITY.md). Existing broker volumes require a coordinated upgrade; this command is not an automatic migration.
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 Access the application:
 - Next.js SRE Console: `http://localhost:3000`
 - Spring Boot REST API: `http://localhost:8080`
-- Actuator Health Check: `http://localhost:8080/actuator/health`
+- Minimal health status: `http://localhost:8080/actuator/health`; global Actuator diagnostics are not available to workspace sessions.
 
 ---
 
 ## Running the Automated Test Suite
 
-RootTrace includes 23 automated integration and unit tests covering all system stages:
+Backend integration tests use disposable PostgreSQL, Redis, and Kafka containers. Install JDK 21, set `JAVA_HOME`, and start Docker before running them. The development Compose stack is not required, and test provider credentials are overridden to avoid live Gemini/GitHub requests.
+
 ```bash
 cd backend
-./mvnw test
+./mvnw -B test
 ```
-Test suite coverage:
-- `WebhookIngestionIntegrationTest`: Log & Alert REST ingestion, micro-batching, and Kafka dispatch (4 tests).
-- `LogFingerprinterTest`: Stack trace clustering, timestamp normalization, and deduplication (4 tests).
-- `GroundingValidatorTest`: AI citation verification and hallucination penalization (3 tests).
-- `GitHubAndRedisContextIntegrationTest`: Redis context caching and time-window correlation (3 tests).
-- `AiInvestigationServiceIntegrationTest`: End-to-end AI investigation workflows for Scenario A & B (2 tests).
-- `IncidentWorkspaceIntegrationTest`: REST APIs, timeline aggregation, verification, and postmortem generation (6 tests).
-- `RootTraceApplicationTests`: Context bootstrapper (1 test).
+
+On Windows PowerShell, use `.\mvnw.cmd -B test` from `backend`.
+
+The suite covers repository persistence, webhook validation and authorization, Kafka publishing/consumption, alert deduplication, correlation and log compression, Redis caching, heuristic AI investigation, citation grounding, account/workspace APIs, and incident review/postmortem workflows.
+
+See [backend/TESTING.md](backend/TESTING.md) for lifecycle, isolation boundaries, and focused test commands.
 
 ---
 
@@ -201,14 +210,37 @@ Test suite coverage:
 
 ## Incident Demo Walkthrough
 
+Demo login, account seeding, and simulation endpoints are **disabled by default**. They require both the backend `dev` profile and `ROOTTRACE_DEMO_ENABLED=true`. Any active `prod` profile disables them regardless of the flag. The production Compose configuration explicitly selects `prod` and disables demos.
+
+For a local demo, set these in the backend PowerShell session before starting Spring Boot:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'dev'
+$env:ROOTTRACE_DEMO_ENABLED = 'true'
+.\mvnw.cmd spring-boot:run
+```
+
+In a separate PowerShell session in `frontend`, opt into the development UI:
+
+```powershell
+$env:NEXT_PUBLIC_DEMO_ENABLED = 'true'
+npm.cmd run dev
+```
+
+Frontend production builds always hide demo profiles, persona switching, and simulations. Visitors are no longer logged in automatically; choose a demo profile on the login page when running the local demo. The normal signup/password login flow works without demo mode.
+
+Disabling demos does not remove accounts already seeded into an existing database or revoke previously issued tokens. Existing demo accounts, default secrets, and the migration-seeded development workspace require separate cleanup before deploying existing data. Do not expose the development demo publicly.
+
 1. Open `http://localhost:3000` in your browser.
-2. Click **"Simulate Scenario A"** in the top navigation bar:
+2. In the development legacy workspace, open **Settings → Demo tools** and choose **Scenario A**:
    - Injects a `ConnectionPoolExhausted` alert on `payment-service`.
    - Links to correlated `v2.4.1` database migration deployment and PR `#42`.
    - AI correlates logs, PR diff, and generates a grounded hypothesis: *Database lock contention from migration script*.
 3. Click the incident card to enter the **Investigation Room**:
    - Inspect the **Correlated Timeline** showing the exact chronology from deployment to failure.
-   - Review the **AI Root Causes** tab and verify the evidence citations.
+   - Review the **Hypotheses** tab and verify the evidence citations.
    - Click **"Verify Root Cause"** to confirm the diagnosis as an SRE.
    - Transition status to **RESOLVED**.
-   - Navigate to the **Automated Postmortem** tab and click **"Download .md"** to export the ready-to-share postmortem.
+   - Navigate to the **Postmortem** tab and click **"Download .md"** to export the ready-to-share postmortem.
+
+Workspace navigation and connection evidence are documented in [Workspace UX](frontend/WORKSPACE_UX.md) and [Setup API](backend/WORKSPACE_SETUP.md). Personal email and security controls are in the account menu; ingestion keys are in Integrations and members/invitations are in Team.

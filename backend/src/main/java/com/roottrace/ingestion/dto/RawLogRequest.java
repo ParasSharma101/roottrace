@@ -7,6 +7,7 @@ import java.util.Map;
 
 public record RawLogRequest(
     @NotBlank(message = "serviceName must not be blank")
+    @jakarta.validation.constraints.Size(max = 128)
     String serviceName,
 
     @NotNull(message = "timestamp must not be null (ISO-8601 UTC required, e.g. 2026-11-14T08:00:00Z)")

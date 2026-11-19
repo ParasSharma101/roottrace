@@ -8,12 +8,14 @@ interface HypothesisCardProps {
   hypothesis: HypothesisDetail;
   onVerify: (id: string) => Promise<void>;
   onReject: (id: string, reason: string) => Promise<void>;
+  canReview?: boolean;
 }
 
-export function HypothesisCard({ hypothesis, onVerify, onReject }: HypothesisCardProps) {
+export function HypothesisCard({ hypothesis, onVerify, onReject, canReview = true }: HypothesisCardProps) {
   const [loading, setLoading] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  const [error, setError] = useState(false);
 
   const confidencePercent = Math.round(hypothesis.confidenceScore * 100);
 
@@ -26,9 +28,9 @@ export function HypothesisCard({ hypothesis, onVerify, onReject }: HypothesisCar
 
   const handleVerify = async () => {
     try {
-      setLoading(true);
+      setLoading(true); setError(false);
       await onVerify(hypothesis.id);
-    } finally {
+    } catch { setError(true); } finally {
       setLoading(false);
     }
   };
@@ -36,10 +38,10 @@ export function HypothesisCard({ hypothesis, onVerify, onReject }: HypothesisCar
   const handleReject = async () => {
     if (!reason.trim()) return;
     try {
-      setLoading(true);
+      setLoading(true); setError(false);
       await onReject(hypothesis.id, reason);
       setRejecting(false);
-    } finally {
+    } catch { setError(true); } finally {
       setLoading(false);
     }
   };
@@ -122,13 +124,14 @@ export function HypothesisCard({ hypothesis, onVerify, onReject }: HypothesisCar
         </div>
       )}
 
+      {error && <p role="alert" className="text-sm text-rose-300 mt-3">Review could not be saved. Refresh and check your access before trying again.</p>}
       {/* Action Buttons for Human Verification */}
       <div className="mt-5 pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
         <span className="text-xs text-slate-500">
           Generated at {new Date(hypothesis.createdAt).toLocaleTimeString()}
         </span>
 
-        {hypothesis.status === 'PENDING' && (
+        {hypothesis.status === 'PENDING' && canReview && (
           <div className="flex items-center gap-2">
             {rejecting ? (
               <div className="flex items-center gap-2">

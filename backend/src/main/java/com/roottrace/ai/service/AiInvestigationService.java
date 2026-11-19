@@ -47,51 +47,32 @@ public class AiInvestigationService {
         this.objectMapper = objectMapper;
     }
 
-    @Transactional
-    public List<Hypothesis> investigateIncident(UUID incidentId) {
-        log.info("Starting AI investigation workflow for incident [{}]", incidentId);
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    public AiInvestigationResult evaluate(UUID workspaceId, UUID incidentId) {
+        IncidentContextBundle bundle = correlationService.buildContextBundle(incidentId);
+        if (!workspaceId.equals(bundle.workspaceId())) throw new IllegalStateException("Investigation ownership mismatch");
+        incidentContextCacheService.cacheContextBundle(bundle);
+        return aiInvestigationClient.investigate(bundle);
+    }
 
-        Incident incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new IllegalArgumentException("Incident not found: " + incidentId));
-
-        // 1. Get Context Bundle from Redis cache (or build from DB if cache miss)
-        IncidentContextBundle bundle = incidentContextCacheService.getCachedContextBundle(incidentId)
-                .orElseGet(() -> {
-                    log.info("Cache miss in Redis for incident [{}]. Correlating directly from database.", incidentId);
-                    IncidentContextBundle built = correlationService.buildContextBundle(incidentId);
-                    incidentContextCacheService.cacheContextBundle(built);
-                    return built;
-                });
-
-        // 2. Call AI investigation engine (Gemini API with heuristic fallback + grounding validation)
-        AiInvestigationResult aiResult = aiInvestigationClient.investigate(bundle);
-
-        // 3. Update Incident record
-        incident.setStatus(IncidentStatus.INVESTIGATING);
-        incident.setSummary(aiResult.summary());
-        incidentRepository.save(incident);
-
-        // 4. Persist grounded hypotheses
-        List<Hypothesis> savedHypotheses = new ArrayList<>();
-        for (AiHypothesisItem item : aiResult.hypotheses()) {
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<Hypothesis> applyResult(UUID workspaceId, UUID incidentId, AiInvestigationResult result) {
+        Incident incident = incidentRepository.lockByIdAndWorkspaceId(incidentId, workspaceId)
+                .orElseThrow(() -> new IllegalStateException("Investigation incident not found"));
+        // Preserve a human resolution that happened while the provider was running.
+        if (incident.getStatus() != IncidentStatus.OPEN && incident.getStatus() != IncidentStatus.INVESTIGATING) return List.of();
+        List<Hypothesis> prepared = new ArrayList<>();
+        for (AiHypothesisItem item : result.hypotheses()) {
             try {
-                String citationsJson = objectMapper.writeValueAsString(item.evidenceCitations());
-                Hypothesis hypothesis = new Hypothesis(
-                        incident,
-                        item.description(),
-                        item.confidenceScore(),
-                        HypothesisStatus.PENDING,
-                        citationsJson
-                );
-                savedHypotheses.add(hypothesisRepository.save(hypothesis));
-            } catch (Exception ex) {
-                log.error("Failed to serialize citations for hypothesis: {}", ex.getMessage());
+                prepared.add(new Hypothesis(incident, item.description(), item.confidenceScore(), HypothesisStatus.PENDING,
+                        objectMapper.writeValueAsString(item.evidenceCitations())));
+            } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+                throw new IllegalStateException("Cannot serialize investigation citations", ex);
             }
         }
-
-        log.info("Investigation complete for incident [{}]. Persisted {} grounded hypotheses.",
-                incidentId, savedHypotheses.size());
-
-        return savedHypotheses;
+        incident.setStatus(IncidentStatus.INVESTIGATING);
+        incident.setSummary(result.summary());
+        incidentRepository.save(incident);
+        return hypothesisRepository.saveAll(prepared);
     }
 }

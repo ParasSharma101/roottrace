@@ -1,5 +1,6 @@
 package com.roottrace.workspace.controller;
 
+import com.roottrace.security.WorkspaceIdentity;
 import com.roottrace.domain.model.IncidentStatus;
 import com.roottrace.domain.model.SeverityLevel;
 import com.roottrace.workspace.dto.*;
@@ -30,21 +31,21 @@ public class IncidentController {
     public ResponseEntity<List<IncidentSummaryResponse>> listIncidents(
             @RequestParam(required = false) IncidentStatus status,
             @RequestParam(required = false) SeverityLevel severity,
-            @RequestParam(required = false) String serviceName
+            @RequestParam(required = false) String serviceName, Authentication authentication
     ) {
-        List<IncidentSummaryResponse> list = workspaceService.listIncidents(status, severity, serviceName);
+        List<IncidentSummaryResponse> list = workspaceService.listIncidents(WorkspaceIdentity.require(authentication).requireWorkspace(), status, severity, serviceName);
         return ResponseEntity.ok(list);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<IncidentDetailResponse> getIncident(@PathVariable UUID id) {
-        IncidentDetailResponse detail = workspaceService.getIncident(id);
+    public ResponseEntity<IncidentDetailResponse> getIncident(@PathVariable UUID id, Authentication authentication) {
+        IncidentDetailResponse detail = workspaceService.getIncident(WorkspaceIdentity.require(authentication).requireWorkspace(), id);
         return ResponseEntity.ok(detail);
     }
 
     @GetMapping("/{id}/timeline")
-    public ResponseEntity<List<TimelineEventDto>> getTimeline(@PathVariable UUID id) {
-        List<TimelineEventDto> timeline = workspaceService.getTimeline(id);
+    public ResponseEntity<List<TimelineEventDto>> getTimeline(@PathVariable UUID id, Authentication authentication) {
+        List<TimelineEventDto> timeline = workspaceService.getTimeline(WorkspaceIdentity.require(authentication).requireWorkspace(), id);
         return ResponseEntity.ok(timeline);
     }
 
@@ -57,7 +58,7 @@ public class IncidentController {
     ) {
         String fallback = request != null ? request.author() : null;
         String author = resolveAuthor(authentication, fallback);
-        HypothesisDetailDto result = workspaceService.verifyHypothesis(id, hypothesisId, author);
+        HypothesisDetailDto result = workspaceService.verifyHypothesis(WorkspaceIdentity.require(authentication).requireWorkspace(), id, hypothesisId, author);
         return ResponseEntity.ok(result);
     }
 
@@ -69,7 +70,7 @@ public class IncidentController {
             Authentication authentication
     ) {
         String author = resolveAuthor(authentication, request.author());
-        HypothesisDetailDto result = workspaceService.rejectHypothesis(id, hypothesisId, author, request.reason());
+        HypothesisDetailDto result = workspaceService.rejectHypothesis(WorkspaceIdentity.require(authentication).requireWorkspace(), id, hypothesisId, author, request.reason());
         return ResponseEntity.ok(result);
     }
 
@@ -81,38 +82,32 @@ public class IncidentController {
     ) {
         String author = resolveAuthor(authentication, request.author());
         AddNoteRequest effectiveRequest = new AddNoteRequest(author, request.note(), request.hypothesisId());
-        IncidentNoteDetailDto result = workspaceService.addNote(id, effectiveRequest);
+        IncidentNoteDetailDto result = workspaceService.addNote(WorkspaceIdentity.require(authentication).requireWorkspace(), id, effectiveRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
-    private String resolveAuthor(Authentication authentication, String fallback) {
-        if (fallback != null && !fallback.isBlank()) {
-            return fallback;
-        }
-        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
-            return authentication.getName();
-        }
-        return "On-Call Engineer";
+    private String resolveAuthor(Authentication authentication, String ignoredClientAuthor) {
+        return WorkspaceIdentity.require(authentication).email();
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<IncidentDetailResponse> updateStatus(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateIncidentStatusRequest request
+            @Valid @RequestBody UpdateIncidentStatusRequest request, Authentication authentication
     ) {
-        IncidentDetailResponse result = workspaceService.updateStatus(id, request.status());
+        IncidentDetailResponse result = workspaceService.updateStatus(WorkspaceIdentity.require(authentication).requireWorkspace(), id, request.status(), WorkspaceIdentity.require(authentication).email());
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/{id}/postmortem")
-    public ResponseEntity<PostmortemResponse> getPostmortem(@PathVariable UUID id) {
-        PostmortemResponse response = workspaceService.generatePostmortem(id);
+    public ResponseEntity<PostmortemResponse> getPostmortem(@PathVariable UUID id, Authentication authentication) {
+        PostmortemResponse response = workspaceService.generatePostmortem(WorkspaceIdentity.require(authentication).requireWorkspace(), id);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping(value = "/{id}/postmortem/export", produces = MediaType.TEXT_MARKDOWN_VALUE)
-    public ResponseEntity<String> exportPostmortemMarkdown(@PathVariable UUID id) {
-        PostmortemResponse response = workspaceService.generatePostmortem(id);
+    public ResponseEntity<String> exportPostmortemMarkdown(@PathVariable UUID id, Authentication authentication) {
+        PostmortemResponse response = workspaceService.generatePostmortem(WorkspaceIdentity.require(authentication).requireWorkspace(), id);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"postmortem-" + id + ".md\"")
                 .body(response.markdownContent());

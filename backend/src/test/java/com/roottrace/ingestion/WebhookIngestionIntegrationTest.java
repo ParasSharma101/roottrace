@@ -22,9 +22,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class WebhookIngestionIntegrationTest {
+class WebhookIngestionIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
-    private static final String VALID_KEY = "roottrace_dev_secret_key";
+    private static final String VALID_KEY = "test-only-ingestion-key-at-least-32-bytes-long";
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;

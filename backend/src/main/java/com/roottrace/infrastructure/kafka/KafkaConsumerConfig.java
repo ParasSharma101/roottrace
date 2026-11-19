@@ -22,13 +22,16 @@ public class KafkaConsumerConfig {
 
     @Bean
     public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(KafkaOperations<Object, Object> kafkaOperations) {
-        return new DeadLetterPublishingRecoverer(kafkaOperations, (ConsumerRecord<?, ?> record, Exception ex) -> {
+        var recoverer = new DeadLetterPublishingRecoverer(kafkaOperations, (ConsumerRecord<?, ?> record, Exception ex) -> {
             String originalTopic = record.topic();
             String dlqTopic = originalTopic + "-dlq";
             log.error("Quarantining poisoned record from topic [{}] to DLQ [{}]. Partition: {}, Offset: {}, Error: {}",
                     originalTopic, dlqTopic, record.partition(), record.offset(), ex.getMessage());
             return new TopicPartition(dlqTopic, 0);
         });
+        recoverer.setFailIfSendResultIsError(true);
+        recoverer.setWaitForSendResultTimeout(java.time.Duration.ofSeconds(10));
+        return recoverer;
     }
 
     @Bean
@@ -36,6 +39,17 @@ public class KafkaConsumerConfig {
         // Retry 2 times with a 500ms pause before forwarding to DLQ
         FixedBackOff backOff = new FixedBackOff(500L, 2L);
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
+        errorHandler.setBackOffFunction((record, failure) -> {
+            for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+                if (cause instanceof org.springframework.dao.TransientDataAccessException
+                        || cause instanceof org.springframework.dao.DataAccessResourceFailureException
+                        || cause instanceof org.springframework.transaction.CannotCreateTransactionException) {
+                    // A temporary database outage must not turn a valid event into a poison record.
+                    return new FixedBackOff(1000L, FixedBackOff.UNLIMITED_ATTEMPTS);
+                }
+            }
+            return backOff;
+        });
 
         errorHandler.setRetryListeners((record, ex, deliveryAttempt) -> {
             log.warn("Retrying delivery attempt #{} for topic: {}, offset: {}. Error: {}",

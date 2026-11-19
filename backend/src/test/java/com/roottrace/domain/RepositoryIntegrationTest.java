@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-class RepositoryIntegrationTest {
+class RepositoryIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private AlertRepository alertRepository;
@@ -114,12 +114,12 @@ class RepositoryIntegrationTest {
         Instant windowEnd = now.plus(5, ChronoUnit.MINUTES);
 
         List<Deployment> windowDeployments = deploymentRepository
-                .findByServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc("payment-service", windowStart, windowEnd);
+                .findByWorkspaceIdAndServiceNameAndDeploymentTimeBetweenOrderByDeploymentTimeDesc(Workspace.LEGACY_WORKSPACE_ID, "payment-service", windowStart, windowEnd);
         assertThat(windowDeployments).hasSize(1);
         assertThat(windowDeployments.get(0).getVersionTag()).isEqualTo("v2.4.1");
 
         List<LogEvent> windowLogs = logEventRepository
-                .findByServiceNameAndTimestampBetweenOrderByTimestampDesc("payment-service", windowStart, windowEnd);
+                .findByWorkspaceIdAndServiceNameAndTimestampBetweenOrderByTimestampDesc(Workspace.LEGACY_WORKSPACE_ID, "payment-service", windowStart, windowEnd);
         assertThat(windowLogs).hasSize(1);
         assertThat(windowLogs.get(0).getLogLevel()).isEqualTo(LogLevel.ERROR);
 

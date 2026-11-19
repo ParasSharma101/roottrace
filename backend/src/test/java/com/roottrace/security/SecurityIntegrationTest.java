@@ -1,17 +1,14 @@
 package com.roottrace.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.roottrace.domain.model.Hypothesis;
-import com.roottrace.domain.model.HypothesisStatus;
-import com.roottrace.domain.model.Incident;
-import com.roottrace.domain.model.IncidentNote;
-import com.roottrace.domain.model.IncidentStatus;
-import com.roottrace.domain.model.SeverityLevel;
+import com.roottrace.domain.model.*;
 import com.roottrace.domain.repository.HypothesisRepository;
 import com.roottrace.domain.repository.IncidentNoteRepository;
 import com.roottrace.domain.repository.IncidentRepository;
 import com.roottrace.security.dto.DemoLoginRequest;
+import com.roottrace.security.dto.InviteMemberRequest;
 import com.roottrace.security.dto.LoginRequest;
+import com.roottrace.security.dto.SignupRequest;
 import com.roottrace.workspace.dto.VerifyHypothesisRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,9 +18,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -31,15 +30,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {"roottrace.demo.enabled=true", "roottrace.security.break-glass.enabled=true"})
+@ActiveProfiles("dev")
 @AutoConfigureMockMvc
 @Transactional
-class SecurityIntegrationTest {
+class SecurityIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private JwtTokenProvider jwtTokenProvider;
+    @Autowired private com.roottrace.security.service.AuthService authService;
     @Autowired private IncidentRepository incidentRepository;
+    @Autowired private com.roottrace.domain.repository.WorkspaceRepository workspaceRepository;
     @Autowired private HypothesisRepository hypothesisRepository;
     @Autowired private IncidentNoteRepository incidentNoteRepository;
 
@@ -52,51 +53,98 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/auth/signup - should register new SaaS user, workspace and return JWT")
+    void testSaaSSignup() throws Exception {
+        String testEmail = "founder-" + UUID.randomUUID() + "@company.com";
+        SignupRequest signupReq = new SignupRequest(
+                "Alex Founder",
+                testEmail,
+                "securePass123456",
+                "Acme Payments Prod"
+        );
+
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(signupReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.email").value(testEmail))
+                .andExpect(jsonPath("$.fullName").value("Alex Founder"))
+                .andExpect(jsonPath("$.roles[0]").value("ROLE_ADMIN"))
+                .andExpect(jsonPath("$.workspaceName").value("Acme Payments Prod"))
+                .andExpect(jsonPath("$.apiKey").isEmpty());
+    }
+
+    @Test
     @DisplayName("POST /api/v1/auth/demo-login - should mint valid JWT for SRE, VIEWER, and ADMIN")
     void testDemoLogin() throws Exception {
-        DemoLoginRequest req = new DemoLoginRequest("SRE");
-
-        mockMvc.perform(post("/api/v1/auth/demo-login")
+        for (String role : List.of("SRE", "VIEWER", "ADMIN")) {
+            DemoLoginRequest req = new DemoLoginRequest(role);
+            mockMvc.perform(post("/api/v1/auth/demo-login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
-                .andExpect(jsonPath("$.email").value("alice.sre@roottrace.io"))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_SRE"));
+                .andExpect(jsonPath("$.roles[0]").value("ROLE_" + role));
+        }
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/login - should authenticate and return JWT token")
+    @DisplayName("POST /api/v1/auth/login - should authenticate with BCrypt and return JWT token")
     void testStandardLogin() throws Exception {
-        LoginRequest req = new LoginRequest("sre.lead@company.com", "any-password");
+        // Alice is seeded with password123
+        LoginRequest req = new LoginRequest("alice.sre@roottrace.io", "password123");
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
-                .andExpect(jsonPath("$.email").value("sre.lead@company.com"))
+                .andExpect(jsonPath("$.email").value("alice.sre@roottrace.io"))
                 .andExpect(jsonPath("$.roles").isArray());
     }
 
     @Test
-    @DisplayName("GET /api/v1/auth/me - should return authenticated profile from JWT")
+    @DisplayName("POST /api/v1/auth/login - should reject invalid credentials with 401")
+    void testLoginInvalidCredentials() throws Exception {
+        LoginRequest req = new LoginRequest("alice.sre@roottrace.io", "wrongpassword");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/me - should return authenticated profile and workspace from JWT")
     void testGetMe() throws Exception {
-        String token = jwtTokenProvider.generateToken("alice@roottrace.io", "Alice", List.of("ROLE_SRE"));
+        String token = authService.demoLogin(new DemoLoginRequest("SRE")).token();
 
         mockMvc.perform(get("/api/v1/auth/me")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("alice@roottrace.io"))
-                .andExpect(jsonPath("$.name").value("alice"))
-                .andExpect(jsonPath("$.roles[0]").value("ROLE_SRE"))
+                .andExpect(jsonPath("$.email").value("alice.sre@roottrace.io"))
+                .andExpect(jsonPath("$.fullName").isNotEmpty())
                 .andExpect(jsonPath("$.breakGlass").value(false));
+    }
+
+    @Test
+    @DisplayName("Legacy demo membership cannot issue real invitations")
+    void testWorkspaceInvite() throws Exception {
+        String adminToken = authService.demoLogin(new DemoLoginRequest("ADMIN")).token();
+        InviteMemberRequest inviteReq = new InviteMemberRequest("newdev@roottrace.io", "ROLE_SRE");
+
+        mockMvc.perform(post("/api/v1/workspace/invites")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(inviteReq)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     @DisplayName("RBAC - ROLE_VIEWER can read incidents but gets 403 Forbidden on verify hypothesis")
     void testViewerRolePermissions() throws Exception {
-        String viewerToken = jwtTokenProvider.generateToken("viewer@roottrace.io", "Viewer", List.of("ROLE_VIEWER"));
+        String viewerToken = authService.demoLogin(new DemoLoginRequest("VIEWER")).token();
 
         Incident inc = incidentRepository.save(new Incident("Test Incident", SeverityLevel.SEV2, IncidentStatus.INVESTIGATING));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Hypothesis 1", BigDecimal.valueOf(0.8), HypothesisStatus.PENDING, "[]"));
@@ -118,9 +166,10 @@ class SecurityIntegrationTest {
     @Test
     @DisplayName("RBAC - ROLE_SRE can verify hypothesis and stamps authenticated user identity into audit note")
     void testSreRoleVerifyHypothesis() throws Exception {
-        String sreToken = jwtTokenProvider.generateToken("alice.sre@roottrace.io", "Alice", List.of("ROLE_SRE"));
+        String sreToken = authService.demoLogin(new DemoLoginRequest("SRE")).token();
 
         Incident inc = incidentRepository.save(new Incident("Test Incident SRE", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
+        inc.setWorkspace(workspaceRepository.getReferenceById(AuthDataSeeder.DEFAULT_WORKSPACE_ID));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Database pool exhaustion", BigDecimal.valueOf(0.95), HypothesisStatus.PENDING, "[]"));
 
         mockMvc.perform(post("/api/v1/incidents/{id}/hypotheses/{hypId}/verify", inc.getId(), hyp.getId())
@@ -137,7 +186,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("Emergency Break-Glass - should authenticate with Break-Glass header and allow admin operations")
+    @DisplayName("Development emergency header cannot bypass selected workspace identity")
     void testEmergencyBreakGlassAccess() throws Exception {
         Incident inc = incidentRepository.save(new Incident("Outage Incident", SeverityLevel.SEV1, IncidentStatus.INVESTIGATING));
         Hypothesis hyp = hypothesisRepository.save(new Hypothesis(inc, "Core router failure", BigDecimal.valueOf(0.99), HypothesisStatus.PENDING, "[]"));
@@ -146,11 +195,9 @@ class SecurityIntegrationTest {
                         .header(BreakGlassAuthenticationFilter.BREAK_GLASS_HEADER, "roottrace_emergency_breakglass_token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("VERIFIED"));
+                .andExpect(status().isForbidden());
 
         List<IncidentNote> notes = incidentNoteRepository.findByIncidentIdOrderByCreatedAtAsc(inc.getId());
-        assertThat(notes).isNotEmpty();
-        assertThat(notes.getFirst().getAuthor()).isEqualTo("emergency-breakglass@roottrace.internal");
+        assertThat(notes).isEmpty();
     }
 }

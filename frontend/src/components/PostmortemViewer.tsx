@@ -28,11 +28,11 @@ export function PostmortemViewer({ postmortem }: { postmortem: Postmortem }) {
   return (
     <div className="space-y-4">
       {/* Action Header */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-slate-900 border border-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-indigo-400" />
           <div>
-            <h3 className="text-sm font-semibold text-white">Automated SRE Postmortem</h3>
+            <h3 className="text-sm font-semibold text-white">Incident postmortem</h3>
             <p className="text-xs text-slate-400">
               Generated at {new Date(postmortem.generatedAt).toLocaleString()}
             </p>

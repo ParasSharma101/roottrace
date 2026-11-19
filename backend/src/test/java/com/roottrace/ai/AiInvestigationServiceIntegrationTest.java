@@ -18,11 +18,12 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Transactional
-class AiInvestigationServiceIntegrationTest {
+class AiInvestigationServiceIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private AiInvestigationService aiInvestigationService;
+    @Autowired private org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Autowired private IncidentRepository incidentRepository;
+    @Autowired private WorkspaceRepository workspaceRepository;
     @Autowired private AlertRepository alertRepository;
     @Autowired private DeploymentRepository deploymentRepository;
     @Autowired private GitHubPRRepository gitHubPRRepository;
@@ -37,6 +38,7 @@ class AiInvestigationServiceIntegrationTest {
         // 1. Incident and Alert: DatabaseConnectionExhaustion
         Incident incident = new Incident("[Alert] " + serviceName + ": DatabaseConnectionExhaustion", SeverityLevel.SEV1, IncidentStatus.OPEN);
         incident.setStartTime(now);
+        incident.setWorkspace(workspaceRepository.getReferenceById(Workspace.LEGACY_WORKSPACE_ID));
         incident = incidentRepository.save(incident);
 
         Alert alert = new Alert("Datadog", "DatabaseConnectionExhaustion", serviceName, "{\"pool_exhausted\": true}", now);
@@ -73,7 +75,7 @@ class AiInvestigationServiceIntegrationTest {
         logEventRepository.saveAll(logs);
 
         // 4. Run AI Investigation
-        List<Hypothesis> hypotheses = aiInvestigationService.investigateIncident(incident.getId());
+        List<Hypothesis> hypotheses = investigate(incident.getId());
 
         // 5. Assertions
         assertThat(hypotheses).isNotEmpty();
@@ -99,6 +101,7 @@ class AiInvestigationServiceIntegrationTest {
         // 1. Incident and Alert: CheckoutFlowLatencyHigh
         Incident incident = new Incident("[Alert] " + serviceName + ": CheckoutFlowLatencyHigh", SeverityLevel.SEV1, IncidentStatus.OPEN);
         incident.setStartTime(now);
+        incident.setWorkspace(workspaceRepository.getReferenceById(Workspace.LEGACY_WORKSPACE_ID));
         incident = incidentRepository.save(incident);
 
         Alert alert = new Alert("PagerDuty", "CheckoutFlowLatencyHigh", serviceName, "{\"latency_p99\": \"5200ms\"}", now);
@@ -135,7 +138,7 @@ class AiInvestigationServiceIntegrationTest {
         logEventRepository.saveAll(logs);
 
         // 4. Run AI Investigation
-        List<Hypothesis> hypotheses = aiInvestigationService.investigateIncident(incident.getId());
+        List<Hypothesis> hypotheses = investigate(incident.getId());
 
         // 5. Assertions
         assertThat(hypotheses).isNotEmpty();
@@ -149,4 +152,10 @@ class AiInvestigationServiceIntegrationTest {
         assertThat(primaryHypothesis.getDescription()).contains("timeout");
         assertThat(primaryHypothesis.getEvidenceCitations()).contains(pr.getId().toString());
     }
+    private List<Hypothesis> investigate(UUID id) {
+        var result = aiInvestigationService.evaluate(Workspace.LEGACY_WORKSPACE_ID, id);
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .execute(status -> aiInvestigationService.applyResult(Workspace.LEGACY_WORKSPACE_ID, id, result));
+    }
+
 }

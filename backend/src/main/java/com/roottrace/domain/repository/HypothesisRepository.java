@@ -7,5 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface HypothesisRepository extends JpaRepository<Hypothesis, UUID> {
+    java.util.Optional<Hypothesis> findByIdAndIncidentId(UUID id, UUID incidentId);
     List<Hypothesis> findByIncidentIdOrderByConfidenceScoreDesc(UUID incidentId);
 }

@@ -25,7 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class GitHubAndRedisContextIntegrationTest {
+class GitHubAndRedisContextIntegrationTest extends com.roottrace.support.IntegrationTestSupport {
 
     @Autowired private GitHubService gitHubService;
     @Autowired private IncidentContextCacheService incidentContextCacheService;
@@ -66,11 +66,13 @@ class GitHubAndRedisContextIntegrationTest {
 
     @Test
     @DisplayName("IncidentContextCacheService should store, retrieve, and evict context bundles from Redis")
-    void testIncidentContextCacheService() {
+    void testIncidentContextCacheService() throws Exception {
+        UUID workspaceId = UUID.randomUUID();
         UUID incidentId = UUID.randomUUID();
         Instant now = Instant.now();
 
         IncidentContextBundle bundle = new IncidentContextBundle(
+                workspaceId,
                 incidentId,
                 "[Alert] order-service: DBTimeout",
                 SeverityLevel.SEV1,
@@ -90,15 +92,39 @@ class GitHubAndRedisContextIntegrationTest {
         incidentContextCacheService.cacheContextBundle(bundle);
 
         // 2. Retrieve bundle
-        Optional<IncidentContextBundle> retrieved = incidentContextCacheService.getCachedContextBundle(incidentId);
+        Optional<IncidentContextBundle> retrieved = incidentContextCacheService.getCachedContextBundle(workspaceId, incidentId);
         assertThat(retrieved).isPresent();
         assertThat(retrieved.get().incidentId()).isEqualTo(incidentId);
         assertThat(retrieved.get().serviceName()).isEqualTo("order-service");
         assertThat(retrieved.get().severityLevel()).isEqualTo(SeverityLevel.SEV1);
 
+        UUID foreignWorkspace = UUID.randomUUID();
+        String foreignKey = "context:v2:workspace:" + foreignWorkspace + ":incident:" + incidentId + ":context";
+        String oldKey = "incident:" + incidentId + ":context";
+        try {
+            assertThat(incidentContextCacheService.getCachedContextBundle(foreignWorkspace, incidentId)).isEmpty();
+            // Even incorrectly placed data must match both identities inside the bundle.
+            redisTemplate.opsForValue().set(foreignKey, objectMapper.writeValueAsString(bundle));
+            assertThat(incidentContextCacheService.getCachedContextBundle(foreignWorkspace, incidentId)).isEmpty();
+            UUID otherIncident = UUID.randomUUID();
+            String ownKey = "context:v2:workspace:" + workspaceId + ":incident:" + incidentId + ":context";
+            String wrongIncidentJson = objectMapper.writeValueAsString(bundle).replace(incidentId.toString(), otherIncident.toString());
+            redisTemplate.opsForValue().set(ownKey, wrongIncidentJson);
+            assertThat(incidentContextCacheService.getCachedContextBundle(workspaceId, incidentId)).isEmpty();
+            incidentContextCacheService.cacheContextBundle(bundle);
+            incidentContextCacheService.evictContextBundle(foreignWorkspace, incidentId);
+            assertThat(incidentContextCacheService.getCachedContextBundle(workspaceId, incidentId)).isPresent();
+            // Old global context can contain mixed evidence and is never a fallback.
+            redisTemplate.opsForValue().set(oldKey, objectMapper.writeValueAsString(bundle));
+            incidentContextCacheService.evictContextBundle(workspaceId, incidentId);
+            assertThat(incidentContextCacheService.getCachedContextBundle(workspaceId, incidentId)).isEmpty();
+        } finally {
+            redisTemplate.delete(List.of(foreignKey, oldKey));
+        }
+
         // 3. Evict bundle
-        incidentContextCacheService.evictContextBundle(incidentId);
-        Optional<IncidentContextBundle> afterEviction = incidentContextCacheService.getCachedContextBundle(incidentId);
+        incidentContextCacheService.evictContextBundle(workspaceId, incidentId);
+        Optional<IncidentContextBundle> afterEviction = incidentContextCacheService.getCachedContextBundle(workspaceId, incidentId);
         assertThat(afterEviction).isEmpty();
     }
 
@@ -128,7 +154,9 @@ class GitHubAndRedisContextIntegrationTest {
         UUID createdIncidentId = null;
 
         while (System.currentTimeMillis() < deadline) {
+            tickBackgroundWork();
             var incidents = incidentRepository.findActiveIncidentsForService(
+                    com.roottrace.security.AuthDataSeeder.DEFAULT_WORKSPACE_ID,
                     List.of(IncidentStatus.OPEN, IncidentStatus.INVESTIGATING),
                     serviceName,
                     now.minusSeconds(60)
@@ -136,7 +164,7 @@ class GitHubAndRedisContextIntegrationTest {
             if (!incidents.isEmpty()) {
                 createdIncidentId = incidents.get(0).getId();
                 // Check if context bundle is in Redis
-                if (incidentContextCacheService.getCachedContextBundle(createdIncidentId).isPresent()) {
+                if (incidentContextCacheService.getCachedContextBundle(com.roottrace.domain.model.Workspace.LEGACY_WORKSPACE_ID, createdIncidentId).isPresent()) {
                     break;
                 }
             }
@@ -144,7 +172,7 @@ class GitHubAndRedisContextIntegrationTest {
         }
 
         assertThat(createdIncidentId).isNotNull();
-        Optional<IncidentContextBundle> cachedBundle = incidentContextCacheService.getCachedContextBundle(createdIncidentId);
+        Optional<IncidentContextBundle> cachedBundle = incidentContextCacheService.getCachedContextBundle(com.roottrace.domain.model.Workspace.LEGACY_WORKSPACE_ID, createdIncidentId);
         assertThat(cachedBundle).isPresent();
         assertThat(cachedBundle.get().serviceName()).isEqualTo(serviceName);
         assertThat(cachedBundle.get().incidentTitle()).contains("QueueBacklogHigh");

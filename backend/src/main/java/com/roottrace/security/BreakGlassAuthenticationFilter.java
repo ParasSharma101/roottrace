@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -16,6 +15,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 
 @Component
@@ -25,11 +26,16 @@ public class BreakGlassAuthenticationFilter extends OncePerRequestFilter {
     public static final String BREAK_GLASS_HEADER = "X-RootTrace-BreakGlass";
 
     private final String configuredBreakGlassToken;
+    private final boolean enabled;
 
-    public BreakGlassAuthenticationFilter(
-            @Value("${roottrace.security.break-glass.token:roottrace_emergency_breakglass_token}") String configuredBreakGlassToken
-    ) {
-        this.configuredBreakGlassToken = configuredBreakGlassToken;
+    public BreakGlassAuthenticationFilter(SecuritySettings settings) {
+        this.configuredBreakGlassToken = settings.getBreakGlassToken();
+        this.enabled = settings.isBreakGlassEnabled();
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return !enabled;
     }
 
     @Override
@@ -40,7 +46,8 @@ public class BreakGlassAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String breakGlassToken = request.getHeader(BREAK_GLASS_HEADER);
 
-        if (StringUtils.hasText(breakGlassToken) && configuredBreakGlassToken.equals(breakGlassToken.trim())) {
+        if (StringUtils.hasText(breakGlassToken) && MessageDigest.isEqual(
+                configuredBreakGlassToken.getBytes(StandardCharsets.UTF_8), breakGlassToken.getBytes(StandardCharsets.UTF_8))) {
             log.warn("[SECURITY ALERT] Emergency Break-Glass token used to authenticate request from IP [{}] to URI [{}]",
                     request.getRemoteAddr(), request.getRequestURI());
 
