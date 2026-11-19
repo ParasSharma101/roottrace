@@ -23,6 +23,22 @@
         <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
 
+    <!-- Security fixes newer than the Boot/Kafka dependency baseline. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>1.11.4</version>
+            </dependency>
+            <dependency>
+                <groupId>org.xerial.snappy</groupId>
+                <artifactId>snappy-java</artifactId>
+                <version>1.1.10.9</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- Web & Validation -->
         <dependency>

@@ -26,6 +26,8 @@ If an IDE writes compiled classes into `target`, use an isolated Maven output di
 
 `PayloadDigestCompatibilityTest` exercises the Boot-managed internal Jackson 2 mapper against the canonical JSON shape used for persisted ingestion idempotency. Keep this compatibility check when changing JSON configuration or removing the temporary Jackson bridge.
 
+The dependency-hardening suite has 166 tests. `ConsumerIntegrationTest` includes LZ4 and Snappy producer-to-broker-to-database round trips to verify patched compression libraries against the self-hosted Kafka baseline. Production SBOM scanning excludes test-only dependencies and fails on high/critical findings; see the repository verification workflow.
+
 You do not need to start the development Compose stack or copy production credentials.
 
 ## Isolation and lifecycle
