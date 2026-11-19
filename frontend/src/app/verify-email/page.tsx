@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { verifyEmailAddress } from '@/lib/auth';
+import { AuthShell } from '@/components/auth/AuthShell';
 
 export default function VerifyEmailPage() {
   const loaded=useRef(false);
@@ -20,14 +21,11 @@ export default function VerifyEmailPage() {
     catch(error) { setError(error instanceof Error ? error.message : 'Verification could not be completed'); }
     finally { setBusy(false); }
   };
-  return <section className="max-w-lg mx-auto py-12 space-y-5">
-    <h1 className="text-2xl font-semibold">Verify your email</h1>
-    {error && <p role="alert" className="text-rose-300">{error}</p>}
-    {done ? <p role="status" className="text-emerald-300">Your email is verified. Continue to review your workspace invitations.</p> : <>
-      <p className="text-sm text-slate-400">Sign in to the account that requested this link, then confirm your address. Verification does not join a workspace.</p>
-      <button type="button" disabled={!token || busy} onClick={() => void confirm()} className="rounded bg-indigo-600 px-4 py-2 disabled:opacity-50">{busy ? 'Verifying...' : 'Confirm email address'}</button>
-    </>}
-    {!done && <Link href="/login" target="_blank" rel="noopener noreferrer" className="block text-indigo-300">Sign in in another tab, then return here or reopen the email link</Link>}
-    <Link href="/workspaces" className="block text-indigo-300">Continue to workspaces</Link>
-  </section>;
+  return <AuthShell mode="login">
+    <header className="auth-form-heading"><h1>{done ? 'Email verified.' : 'Confirm your email.'}</h1><p>{done ? 'You can now accept invitations and invite teammates when your role allows it.' : 'Sign in to the account that requested this link, then confirm your address.'}</p></header>
+    {error && <p role="alert" className="auth-error">{error}</p>}
+    {done ? <p role="status" className="auth-field-hint">Your email is verified. Choose a workspace to continue.</p> : <button type="button" disabled={!token || busy} onClick={() => void confirm()} className="auth-submit">{busy ? 'Verifying…' : 'Confirm email address'}</button>}
+    {!done && <p className="auth-switch"><Link href="/login" target="_blank" rel="noopener noreferrer">Sign in in another tab, then return here or reopen your email link</Link></p>}
+    <p className="auth-switch"><Link href="/workspaces">Continue to workspaces</Link></p>
+  </AuthShell>;
 }

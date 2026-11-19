@@ -14,7 +14,7 @@ export function InvitationInbox({ emailVerified,onAccepted }: { emailVerified: b
   useEffect(() => { if(emailVerified) void load(); else setItems([]); },[emailVerified,load]);
   const accept=async (item: WorkspaceInvitation) => {
     setBusy(true); setError(null); setNotice(null);
-    try { const accepted=await acceptWorkspaceInvitation(item.id); setNotice(`Joined ${accepted.workspaceName}. Choose the workspace below to open it.`); await load(); onAccepted(); }
+    try { const accepted=await acceptWorkspaceInvitation(item.id); setNotice(`Joined ${accepted.workspaceName}. Choose it from your workspaces to open it.`); await load(); onAccepted(); }
     catch { setError('This invitation may be expired, revoked, or unavailable to this account. Refresh before trying again.'); }
     finally { setBusy(false); }
   };

@@ -23,7 +23,7 @@ export function TeamMembersPanel({ isAdmin, emailVerified, currentUserId }: { is
       const currentRole = user?.roles.includes('ROLE_ADMIN') ? 'ROLE_ADMIN' : user?.roles.includes('ROLE_SRE') ? 'ROLE_SRE' : 'ROLE_VIEWER';
       const ownRole = data.members.find(member => member.userId === user?.userId)?.role;
       if (ownRole && ownRole !== currentRole) {
-        await selectWorkspace(data.id); window.location.assign('/settings'); return;
+        await selectWorkspace(data.id); window.location.assign('/team'); return;
       }
       setWorkspace(data);
     }
@@ -50,7 +50,7 @@ export function TeamMembersPanel({ isAdmin, emailVerified, currentUserId }: { is
       else await removeMember(edit.member, reason.trim());
       if (edit.member.userId === currentUserId) {
         if (edit.action === 'remove') { clearAuthSession(); window.location.assign('/login'); return; }
-        await selectWorkspace(workspace.id); window.location.assign('/settings'); return;
+        await selectWorkspace(workspace.id); window.location.assign('/team'); return;
       }
       setEdit(null); setNotice(edit.action === 'role' ? 'Member role updated.' : 'Member removed and pending invitations revoked.');
       await refresh(); await history();
@@ -93,8 +93,8 @@ export function TeamMembersPanel({ isAdmin, emailVerified, currentUserId }: { is
         <button type="button" disabled={busy} onClick={() => setEdit(null)}>Cancel</button>
       </div>
     </form>}
-    {isAdmin && <div className="border-t border-slate-800 pt-4 space-y-3">
-      <h3 className="font-semibold">Membership history</h3>
+    {isAdmin && <details className="border-t border-slate-800 pt-4 space-y-3">
+      <summary className="font-semibold cursor-pointer">Membership history</summary>
       {entries.length === 0 && <p className="text-slate-500">No membership changes recorded.</p>}
       <ul className="space-y-3">{entries.map(entry => <li key={entry.id} className="space-y-1 break-words">
         <p>{entry.targetEmail} - {entry.action === 'ROLE_CHANGED' ? `${entry.previousRole.replace('ROLE_', '')} to ${entry.newRole?.replace('ROLE_', '')}` : entry.action === 'MEMBER_LEFT' ? 'left workspace' : 'removed'}</p>
@@ -103,6 +103,6 @@ export function TeamMembersPanel({ isAdmin, emailVerified, currentUserId }: { is
         {entry.revokedInvitations > 0 && <p className="text-slate-500">Pending invitations revoked: {entry.revokedInvitations}</p>}
       </li>)}</ul>
       {next && <button type="button" disabled={busy} onClick={() => void history(next)} className="text-indigo-300">Load older changes</button>}
-    </div>}
+    </details>}
   </section>;
 }

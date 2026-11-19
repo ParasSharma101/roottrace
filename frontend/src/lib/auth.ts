@@ -45,6 +45,13 @@ export async function listMyWorkspaces(): Promise<WorkspaceMembership[]> {
   return (await accountRequest('workspaces')).json();
 }
 
+export async function getCurrentProfile(): Promise<AuthUser> {
+  const profile = await (await accountRequest('me')).json();
+  const token = getAuthToken();
+  if (!token) throw new Error('Sign in again');
+  return { ...profile, token, name: profile.fullName || profile.email, isBreakGlass: false };
+}
+
 export async function selectWorkspace(workspaceId: string): Promise<void> {
   const response = await accountRequest('select-workspace', {
     method: 'POST', body: JSON.stringify({ workspaceId }),

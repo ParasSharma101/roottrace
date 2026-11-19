@@ -232,13 +232,15 @@ Frontend production builds always hide demo profiles, persona switching, and sim
 Disabling demos does not remove accounts already seeded into an existing database or revoke previously issued tokens. Existing demo accounts, default secrets, and the migration-seeded development workspace require separate cleanup before deploying existing data. Do not expose the development demo publicly.
 
 1. Open `http://localhost:3000` in your browser.
-2. Click **"Simulate Scenario A"** in the top navigation bar:
+2. In the development legacy workspace, open **Settings → Demo tools** and choose **Scenario A**:
    - Injects a `ConnectionPoolExhausted` alert on `payment-service`.
    - Links to correlated `v2.4.1` database migration deployment and PR `#42`.
    - AI correlates logs, PR diff, and generates a grounded hypothesis: *Database lock contention from migration script*.
 3. Click the incident card to enter the **Investigation Room**:
    - Inspect the **Correlated Timeline** showing the exact chronology from deployment to failure.
-   - Review the **AI Root Causes** tab and verify the evidence citations.
+   - Review the **Hypotheses** tab and verify the evidence citations.
    - Click **"Verify Root Cause"** to confirm the diagnosis as an SRE.
    - Transition status to **RESOLVED**.
-   - Navigate to the **Automated Postmortem** tab and click **"Download .md"** to export the ready-to-share postmortem.
+   - Navigate to the **Postmortem** tab and click **"Download .md"** to export the ready-to-share postmortem.
+
+Workspace navigation and connection evidence are documented in [Workspace UX](frontend/WORKSPACE_UX.md) and [Setup API](backend/WORKSPACE_SETUP.md). Personal email and security controls are in the account menu; ingestion keys are in Integrations and members/invitations are in Team.

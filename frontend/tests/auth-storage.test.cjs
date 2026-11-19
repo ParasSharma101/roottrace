@@ -108,3 +108,21 @@ test('an inactive session cannot report successful account-wide revocation', asy
   await assert.rejects(api.signOut(true), /Sign in again/);
   assert.equal(api.getAuthToken(), null);
 });
+
+test('workspace entry refreshes cached permissions from the live account profile', async () => {
+  const { api } = session({ ok: true, status: 200, json: async () => ({ userId: 'user-fixture', email: 'owner@example.com', fullName: 'Owner', roles: ['ROLE_VIEWER'], emailVerified: true, workspaceId: 'workspace-fixture' }) });
+  api.setAuthSession({ token: 'existing-session', email: 'owner@example.com', roles: ['ROLE_ADMIN'] });
+  const profile = await api.getCurrentProfile();
+  api.setAuthSession(profile);
+  assert.equal(profile.token, 'existing-session');
+  assert.deepEqual(Array.from(api.getAuthUser().roles), ['ROLE_VIEWER']);
+  assert.equal(api.getAuthUser().emailVerified, true);
+});
+
+test('expired profile requests clear cached workspace identity', async () => {
+  const { api } = session({ ok: false, status: 401 });
+  api.setAuthSession({ token: 'expired-session', email: 'owner@example.com', roles: ['ROLE_ADMIN'] });
+  await assert.rejects(api.getCurrentProfile(), /Sign in again/);
+  assert.equal(api.getAuthToken(), null);
+  assert.equal(api.getAuthUser(), null);
+});

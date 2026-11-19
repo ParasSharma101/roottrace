@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './auth.css';
+import './workspace.css';
 import { AppFrame } from '@/components/AppFrame';
 
 export const metadata: Metadata = {

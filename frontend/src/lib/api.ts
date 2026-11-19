@@ -159,6 +159,14 @@ export async function getWorkspaceDetails(): Promise<WorkspaceDetails> {
   return fetchJson<WorkspaceDetails>(`${API_BASE}/workspace`);
 }
 
+export interface WorkspaceSetupStatus {
+  observedAt: string; activeKeyCount: number; acceptedRequestCount: number; processedEventCount: number;
+  lastRequestAt: string | null; lastProcessedAt: string | null;
+}
+export async function getWorkspaceSetupStatus(): Promise<WorkspaceSetupStatus> {
+  return fetchJson(`${API_BASE}/workspace/setup-status`);
+}
+
 export interface MembershipAuditEntry {
   id: string; membershipId: string; actorEmail: string; targetEmail: string;
   action: 'ROLE_CHANGED' | 'MEMBER_REMOVED' | 'MEMBER_LEFT'; previousRole: string; newRole: string | null;

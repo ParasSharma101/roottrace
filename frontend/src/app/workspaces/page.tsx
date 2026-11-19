@@ -1,58 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { EmailVerificationPanel } from '@/components/EmailVerificationPanel';
-import { AccountSecurityPanel } from '@/components/AccountSecurityPanel';
+import { ArrowRight, Building2, Check } from 'lucide-react';
+import { listMyWorkspaces, selectWorkspace, WorkspaceMembership } from '@/lib/auth';
 import { InvitationInbox } from '@/components/InvitationInbox';
-import { EmailStatus, getAuthToken, listMyWorkspaces, selectWorkspace, WorkspaceMembership } from '@/lib/auth';
+import { PageHeader } from '@/components/workspace/PageHeader';
+import { useWorkspaceSession } from '@/components/workspace/WorkspaceSession';
 
 export default function WorkspacesPage() {
-  const router = useRouter();
-  const [workspaces, setWorkspaces] = useState<WorkspaceMembership[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selecting, setSelecting] = useState<string | null>(null);
-  const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!getAuthToken()) { router.replace('/login'); return; }
-    listMyWorkspaces().then(setWorkspaces)
-      .catch((err: Error) => setError(err.message)).finally(() => setLoading(false));
-  }, [router]);
-
+  const user = useWorkspaceSession();
+  const [workspaces,setWorkspaces] = useState<WorkspaceMembership[]>([]),[loading,setLoading] = useState(true);
+  const [selecting,setSelecting] = useState<string | null>(null),[error,setError] = useState<string | null>(null);
+  const [inbox,setInbox] = useState(false);
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null);
+    try { setWorkspaces(await listMyWorkspaces()); }
+    catch { setError('Unable to load your workspaces. Try again.'); }
+    finally { setLoading(false); }
+  },[]);
+  useEffect(() => { void refresh(); },[refresh]);
   const choose = async (id: string) => {
-    setSelecting(id);
-    setError(null);
-    try {
-      await selectWorkspace(id);
-      // Drop data held by the previous workspace's mounted components.
-      window.location.assign('/');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to select workspace');
-      setSelecting(null);
-    }
+    setSelecting(id); setError(null);
+    try { await selectWorkspace(id); window.location.assign('/'); }
+    catch { setError('Unable to open this workspace. Your access may have changed.'); setSelecting(null); }
   };
-
-  return <section className="max-w-xl mx-auto py-12 space-y-6">
-    <div>
-      <h1 className="text-2xl font-semibold">Choose a workspace</h1>
-      <p className="mt-2 text-sm text-slate-400">Your permissions apply to the workspace you select.</p>
-    </div>
-    <EmailVerificationPanel onChange={setEmailStatus} />
-    <AccountSecurityPanel />
-    <InvitationInbox emailVerified={!!emailStatus?.emailVerified} onAccepted={() => { void listMyWorkspaces().then(setWorkspaces).catch(() => setError('Refresh workspaces to see your new membership.')); }} />
-    {error && <p role="alert" className="text-rose-300">{error} <Link href="/login" className="underline">Sign in</Link></p>}
-    {loading ? <p className="text-slate-400">Loading workspaces...</p> :
-      workspaces.length === 0 ? <p className="text-slate-400">You have no workspace memberships. Contact your workspace administrator.</p> :
-      <ul className="space-y-3">{workspaces.map(workspace => <li key={workspace.workspaceId}>
-        <button disabled={selecting !== null} onClick={() => choose(workspace.workspaceId)}
-          className="w-full text-left rounded-xl border border-slate-700 bg-slate-900 p-4 hover:border-indigo-400 disabled:opacity-50">
-          <span className="block font-medium">{workspace.name}</span>
-          <span className="text-xs text-slate-400">{workspace.slug} · {workspace.role.replace('ROLE_', '')}</span>
-          {selecting === workspace.workspaceId && <span className="block text-sm text-indigo-300">Opening workspace...</span>}
-        </button>
-      </li>)}</ul>}
-  </section>;
+  return <div className="ux-page ux-narrow"><PageHeader eyebrow="YOUR WORKSPACES" title="Where would you like to work?" description="Choose a workspace to open its projects and incidents. You can switch at any time." />
+    {error && <div className="ux-notice warning" role="alert">{error}<button className="ux-link" onClick={() => void refresh()}>Try again</button></div>}
+    {loading ? <div className="ux-card ux-empty" role="status">Loading your workspaces…</div> : workspaces.length ? <ul className="ux-workspace-list">{workspaces.map(workspace => <li key={workspace.workspaceId}><button onClick={() => void choose(workspace.workspaceId)} disabled={selecting !== null}><span className="ux-workspace-icon"><Building2 size={22} aria-hidden="true" /></span><span className="ux-workspace-copy"><strong>{workspace.name}</strong><small>{workspace.role.replace('ROLE_','')}{workspace.workspaceId === user.workspaceId && <span><Check size={12} aria-hidden="true" />Current workspace</span>}</small></span>{selecting === workspace.workspaceId ? <span>Opening…</span> : <ArrowRight size={18} aria-hidden="true" />}</button></li>)}</ul> : !error && <section className="ux-card ux-empty"><Building2 size={28} aria-hidden="true" /><h2>No workspaces yet</h2><p>Ask an administrator for an invitation to your team’s workspace.</p></section>}
+    <details className="ux-card ux-disclosure" onToggle={event => setInbox(event.currentTarget.open)}><summary><div><h2>Invited to another workspace?</h2><p>Review invitations sent to your verified email address.</p></div></summary>{inbox && <div className="legacy-panels ux-disclosure-content"><InvitationInbox emailVerified={!!user.emailVerified} onAccepted={() => void refresh()} /></div>}</details>
+    {!user.emailVerified && <p className="ux-subtle-note">You can open your own workspace now. <Link href="/account">Verify your email</Link> to accept invitations from other teams.</p>}
+  </div>;
 }

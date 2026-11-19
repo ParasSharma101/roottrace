@@ -20,7 +20,7 @@ export default function SignupPage() {
     event.preventDefault();
     if (loading) return;
     setError(null); setLoading(true);
-    try { await signupUser(fullName, email, password, workspaceName); router.push('/workspaces'); }
+    try { await signupUser(fullName, email, password, workspaceName); router.push('/'); }
     catch (error) { setError(error instanceof Error ? error.message : 'Unable to create your account. Please try again.'); }
     finally { setLoading(false); }
   };

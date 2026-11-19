@@ -1,248 +1,43 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { getAuthToken, getAuthUser } from '@/lib/auth';
-import { IncidentStatus, IncidentSummary, SeverityLevel } from '@/types';
-import { getIncidents } from '@/lib/api';
-import { StatusBadge, SeverityBadge } from '@/components/Badges';
-import { 
-  AlertOctagon, 
-  Search, 
-  RefreshCw, 
-  Clock, 
-  Sparkles, 
-  Bell, 
-  ArrowRight, 
-  ShieldAlert, 
-  CheckCircle2 
-} from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, PlugZap, RefreshCw, ShieldAlert } from 'lucide-react';
+import { getIncidents, getWorkspaceSetupStatus, WorkspaceSetupStatus } from '@/lib/api';
+import { nextSetupAction } from '@/lib/setup';
+import type { IncidentSummary } from '@/types';
+import { useWorkspaceSession } from '@/components/workspace/WorkspaceSession';
+import { PageHeader } from '@/components/workspace/PageHeader';
+import { SetupChecklist } from '@/components/workspace/SetupChecklist';
+import { IncidentList } from '@/components/workspace/IncidentList';
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Filters
-  const [selectedStatus, setSelectedStatus] = useState<IncidentStatus | 'ALL'>('ALL');
-  const [selectedSeverity, setSelectedSeverity] = useState<SeverityLevel | 'ALL'>('ALL');
-  const [searchService, setSearchService] = useState<string>('');
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const statusParam = selectedStatus !== 'ALL' ? selectedStatus : undefined;
-      const severityParam = selectedSeverity !== 'ALL' ? selectedSeverity : undefined;
-      const serviceParam = searchService.trim() ? searchService.trim() : undefined;
-
-      const data = await getIncidents(statusParam, severityParam, serviceParam);
-      setIncidents(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect to RootTrace backend');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedStatus, selectedSeverity, searchService]);
-
-  useEffect(() => {
-    if (!getAuthToken()) { router.replace('/login'); return; }
-    if (!getAuthUser()?.workspaceId) { router.replace('/workspaces'); return; }
-    loadData();
-  }, [loadData, router]);
-
-  // Compute summary metrics
-  const totalCount = incidents.length;
-  const activeCount = incidents.filter((i) => i.status === 'INVESTIGATING' || i.status === 'OPEN').length;
-  const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
-  const sev1Count = incidents.filter((i) => i.severityLevel === 'SEV1').length;
-
-  return (
-    <div className="space-y-8">
-      {/* Top Banner / Hero */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <AlertOctagon className="w-6 h-6 text-indigo-400" />
-            Incident Command Center
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time correlation of alerts, deployments, Git diffs, and AI-grounded root cause hypotheses.
-          </p>
-        </div>
-
-        <button
-          onClick={loadData}
-          disabled={loading}
-          className="self-start md:self-auto flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-xs font-medium text-slate-200 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
-          Refresh Live State
-        </button>
-      </div>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
-          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Incidents</span>
-          <div className="text-2xl font-bold font-mono text-white">{totalCount}</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-900/30 space-y-1">
-          <span className="text-xs font-medium text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            Active / Investigating
-          </span>
-          <div className="text-2xl font-bold font-mono text-amber-300">{activeCount}</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-900/30 space-y-1">
-          <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            Resolved
-          </span>
-          <div className="text-2xl font-bold font-mono text-emerald-300">{resolvedCount}</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-900/30 space-y-1">
-          <span className="text-xs font-medium text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-            Critical SEV1
-          </span>
-          <div className="text-2xl font-bold font-mono text-rose-300">{sev1Count}</div>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/70 border border-slate-800">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Status selector */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value as any)}
-            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="INVESTIGATING">INVESTIGATING</option>
-            <option value="OPEN">OPEN</option>
-            <option value="RESOLVED">RESOLVED</option>
-          </select>
-
-          {/* Severity selector */}
-          <select
-            value={selectedSeverity}
-            onChange={(e) => setSelectedSeverity(e.target.value as any)}
-            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-          >
-            <option value="ALL">All Severities</option>
-            <option value="SEV1">SEV1 (Critical)</option>
-            <option value="SEV2">SEV2 (High)</option>
-            <option value="SEV3">SEV3 (Medium)</option>
-            <option value="SEV4">SEV4 (Low)</option>
-          </select>
-        </div>
-
-        {/* Search by Service Name */}
-        <div className="relative min-w-[240px]">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Filter by service name..."
-            value={searchService}
-            onChange={(e) => setSearchService(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-          />
-        </div>
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-950/30 border border-rose-800 text-rose-300 text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Incident List */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="text-center py-16 text-slate-500 text-sm flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-            Loading incidents from RootTrace backend...
-          </div>
-        ) : incidents.length === 0 ? (
-          <div className="text-center py-16 rounded-xl border border-dashed border-slate-800 space-y-3">
-            <AlertOctagon className="w-8 h-8 text-slate-600 mx-auto" />
-            <h3 className="text-sm font-semibold text-slate-300">No Incidents Found</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              No incidents match your current filter parameters, or no alerts have been ingested yet.
-            </p>
-            <p className="text-xs text-indigo-400 font-medium">
-              Click &quot;Simulate Scenario A&quot; or &quot;Simulate Scenario B&quot; in the header bar above to inject live incidents!
-            </p>
-          </div>
-        ) : (
-          incidents.map((inc) => {
-            const startDate = new Date(inc.startTime);
-            const timeAgo = startDate.toLocaleTimeString([], { hour12: false });
-
-            return (
-              <Link
-                key={inc.id}
-                href={`/incidents/${inc.id}`}
-                className="group block p-5 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition-all hover:shadow-lg hover:shadow-indigo-500/5"
-              >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <StatusBadge status={inc.status} />
-                      <SeverityBadge severity={inc.severityLevel} />
-                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                        {inc.serviceName}
-                      </span>
-                    </div>
-
-                    <h2 className="text-base font-semibold text-slate-100 group-hover:text-indigo-400 transition-colors">
-                      {inc.title}
-                    </h2>
-
-                    <div className="flex items-center gap-4 text-xs text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-500" />
-                        Started at {timeAgo}
-                      </span>
-                      {inc.resolutionTime && (
-                        <span className="text-emerald-400 font-medium">
-                          Resolved in {Math.round((new Date(inc.resolutionTime).getTime() - startDate.getTime()) / 60000)}m
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 self-end md:self-center shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">
-                        <Bell className="w-3.5 h-3.5 text-rose-400" />
-                        <span>{inc.alertCount} alerts</span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-xs text-slate-400 bg-slate-950 px-2.5 py-1 rounded border border-slate-800">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>{inc.hypothesisCount} hypotheses</span>
-                      </div>
-                    </div>
-
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
+export default function OverviewPage() {
+  const user = useWorkspaceSession();
+  const [incidents,setIncidents] = useState<IncidentSummary[]>([]);
+  const [setup,setSetup] = useState<WorkspaceSetupStatus | null>(null);
+  const [loading,setLoading] = useState(true),[error,setError] = useState<string | null>(null),[incidentError,setIncidentError] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true); setError(null); setIncidentError(false);
+    const [incidentResult,setupResult] = await Promise.allSettled([getIncidents(),getWorkspaceSetupStatus()]);
+    if (incidentResult.status === 'fulfilled') setIncidents(incidentResult.value);
+    else { setIncidents([]); setIncidentError(true); setError('Incident details could not be loaded. Refresh to try again.'); }
+    if (setupResult.status === 'fulfilled') setSetup(setupResult.value);
+    else { setSetup(null); setError(current => current || 'Connection details could not be loaded. Refresh to try again.'); }
+    setLoading(false);
+  },[]);
+  useEffect(() => { void load(); },[load]);
+  const active = incidents.filter(incident => incident.status !== 'RESOLVED').sort((a,b) => a.severityLevel.localeCompare(b.severityLevel) || Date.parse(b.startTime)-Date.parse(a.startTime));
+  const next = nextSetupAction(setup);
+  return <div className="ux-page">
+    <PageHeader eyebrow={user.workspaceName || 'YOUR WORKSPACE'} title="Workspace overview" description="Connect your project, confirm incoming data, and follow active incidents." actions={<button className="ux-button secondary" disabled={loading} onClick={() => void load()}><RefreshCw size={15} className={loading ? 'animate-spin' : ''} aria-hidden="true" />Refresh</button>} />
+    {error && <div className="ux-notice warning" role="alert">{error}</div>}
+    <section className="ux-next-action"><div className="ux-next-action-icon"><PlugZap size={25} aria-hidden="true" /></div><div><p className="ux-eyebrow">YOUR NEXT STEP</p><h2>{loading ? 'Checking your workspace…' : next.title}</h2><p>{loading ? 'Loading connection and incident details.' : next.description}</p></div>{!loading && <Link href={next.href} className="ux-button">{next.label}<ArrowRight size={16} aria-hidden="true" /></Link>}</section>
+    <div className="ux-metrics"><div><span>Active incidents</span><strong>{loading || incidentError ? '—' : active.length}</strong><small>Open or under investigation</small></div><div><span>Critical incidents</span><strong>{loading || incidentError ? '—' : active.filter(incident => incident.severityLevel === 'SEV1').length}</strong><small>Unresolved SEV1 incidents</small></div><div><span>Processed events</span><strong>{loading || !setup ? '—' : setup.processedEventCount.toLocaleString()}</strong><small>Processing confirmed by RootTrace</small></div></div>
+    {(!setup?.processedEventCount || !setup?.activeKeyCount) && <section className="ux-card"><div className="ux-section-heading"><div><h2>Get your project connected</h2><p>Three steps from an empty workspace to your first signal.</p></div><Link href="/integrations" className="ux-link">Open guide<ArrowRight size={14} aria-hidden="true" /></Link></div><SetupChecklist status={setup} /></section>}
+    <section className="ux-card ux-card-flush"><div className="ux-section-heading"><div><h2>Needs your attention</h2><p>Active incidents, with critical issues first.</p></div><Link href="/incidents" className="ux-link">All incidents<ArrowRight size={14} aria-hidden="true" /></Link></div>
+      {loading ? <div className="ux-empty" role="status">Loading incidents…</div> : incidentError ? <div className="ux-empty"><ShieldAlert size={26} aria-hidden="true" /><h3>Incident status is unavailable</h3><p>Refresh before drawing conclusions about your services.</p></div> : active.length ? <IncidentList incidents={active.slice(0,4)} /> : <div className="ux-empty"><CheckCircle2 size={28} aria-hidden="true" /><h3>No active incidents</h3><p>{setup?.processedEventCount ? 'There are no open incidents in this workspace.' : 'Once you send an alert, its investigation will appear here.'}</p><Link href="/integrations#send-data" className="ux-link">Learn how alerts create incidents<ArrowRight size={14} aria-hidden="true" /></Link></div>}
+    </section>
+    <div className="ux-help-grid"><Link href="/integrations"><PlugZap size={20} aria-hidden="true" /><div><h3>Connect another service</h3><p>Keys, webhook examples, and delivery confirmation.</p></div><ArrowRight size={16} aria-hidden="true" /></Link><Link href="/incidents"><Activity size={20} aria-hidden="true" /><div><h3>Follow an investigation</h3><p>Review the timeline, evidence, and hypotheses.</p></div><ArrowRight size={16} aria-hidden="true" /></Link></div>
+    {!user.emailVerified && <p className="ux-subtle-note">Want to invite teammates? <Link href="/account">Verify your email in Account settings.</Link></p>}
+  </div>;
 }

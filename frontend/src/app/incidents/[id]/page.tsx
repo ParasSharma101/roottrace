@@ -1,419 +1,97 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { 
-  IncidentDetail, 
-  TimelineEvent, 
-  Postmortem, 
-  IncidentStatus 
-} from '@/types';
-import { 
-  getIncident, 
-  getTimeline, 
-  getPostmortem, 
-  verifyHypothesis, 
-  rejectHypothesis, 
-  addIncidentNote, 
-  updateIncidentStatus 
-} from '@/lib/api';
+import { ArrowLeft, Bell, FileText, ListOrdered, MessageSquare, RefreshCw, Send, Sparkles } from 'lucide-react';
+import { getIncident, getTimeline, getPostmortem, verifyHypothesis, rejectHypothesis, addIncidentNote, updateIncidentStatus } from '@/lib/api';
+import type { IncidentDetail, IncidentStatus, Postmortem, TimelineEvent } from '@/types';
 import { StatusBadge, SeverityBadge } from '@/components/Badges';
 import { TimelineView } from '@/components/TimelineView';
 import { HypothesisCard } from '@/components/HypothesisCard';
 import { PostmortemViewer } from '@/components/PostmortemViewer';
-import { 
-  ArrowLeft, 
-  Clock, 
-  Sparkles, 
-  ListOrdered, 
-  Bell, 
-  MessageSquare, 
-  FileText, 
-  RefreshCw, 
-  Send 
-} from 'lucide-react';
+import { useWorkspaceSession } from '@/components/workspace/WorkspaceSession';
+import { PageHeader } from '@/components/workspace/PageHeader';
 
+type Tab = 'TIMELINE' | 'HYPOTHESES' | 'ALERTS' | 'NOTES' | 'POSTMORTEM';
 export default function IncidentInvestigationPage() {
-  const params = useParams();
-  const incidentId = params?.id as string;
-
-  const [incident, setIncident] = useState<IncidentDetail | null>(null);
-  const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
-  const [postmortem, setPostmortem] = useState<Postmortem | null>(null);
-  const [activeTab, setActiveTab] = useState<'TIMELINE' | 'HYPOTHESES' | 'ALERTS' | 'NOTES' | 'POSTMORTEM'>('TIMELINE');
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // New Note State
-  const [authorName, setAuthorName] = useState('On-Call SRE');
-  const [newNote, setNewNote] = useState('');
-  const [submittingNote, setSubmittingNote] = useState(false);
-
-  const loadAll = useCallback(async () => {
-    if (!incidentId) return;
+  const params = useParams(), user = useWorkspaceSession();
+  const incidentId = params.id as string;
+  const canReview = user.roles.includes('ROLE_ADMIN') || user.roles.includes('ROLE_SRE');
+  const [incident,setIncident] = useState<IncidentDetail | null>(null),[timeline,setTimeline] = useState<TimelineEvent[]>([]);
+  const [report,setReport] = useState<Postmortem | null>(null),[reportError,setReportError] = useState(false),[reportLoading,setReportLoading] = useState(false);
+  const [tab,setTab] = useState<Tab>('TIMELINE'),[loading,setLoading] = useState(true),[error,setError] = useState(false);
+  const [actionError,setActionError] = useState<string | null>(null),[note,setNote] = useState(''),[busy,setBusy] = useState(false);
+  const request = useRef(0);
+  const reportRequest = useRef(0);
+  const load = useCallback(async () => {
+    const current = ++request.current; setLoading(true); setError(false);
     try {
-      setLoading(true);
-      setError(null);
-
-      const [incData, tlData] = await Promise.all([
-        getIncident(incidentId),
-        getTimeline(incidentId),
-      ]);
-
-      setIncident(incData);
-      setTimeline(tlData);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load incident investigation details');
-    } finally {
-      setLoading(false);
-    }
-  }, [incidentId]);
-
+      const [detail,events] = await Promise.all([getIncident(incidentId),getTimeline(incidentId)]);
+      if(current === request.current) { setIncident(detail); setTimeline(events); }
+    } catch { if(current === request.current) setError(true); }
+    finally { if(current === request.current) setLoading(false); }
+  },[incidentId]);
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
-
-  // Load postmortem when its tab is clicked
-  useEffect(() => {
-    if (activeTab === 'POSTMORTEM' && incidentId && !postmortem) {
-      getPostmortem(incidentId)
-        .then(setPostmortem)
-        .catch((err) => console.error('Failed to load postmortem', err));
-    }
-  }, [activeTab, incidentId, postmortem]);
-
-  const handleVerifyHypothesis = async (hypId: string) => {
-    await verifyHypothesis(incidentId, hypId, authorName);
-    await loadAll();
-    // Refresh postmortem if cached
-    setPostmortem(null);
+    setIncident(null); setTimeline([]); setReport(null); setReportError(false); setReportLoading(false); setActionError(null); setNote(''); setTab('TIMELINE');
+    void load(); return () => { request.current++; reportRequest.current++; };
+  },[load]);
+  const loadReport = useCallback(async () => {
+    const current = ++reportRequest.current;
+    setReportLoading(true); setReportError(false);
+    try { const nextReport = await getPostmortem(incidentId); if(current === reportRequest.current) setReport(nextReport); }
+    catch { if(current === reportRequest.current) setReportError(true); }
+    finally { if(current === reportRequest.current) setReportLoading(false); }
+  },[incidentId]);
+  useEffect(() => { if(tab === 'POSTMORTEM') void loadReport(); },[tab,loadReport]);
+  const review = async (id: string,reason?: string) => {
+    if(!canReview) return;
+    if(reason !== undefined) await rejectHypothesis(incidentId,id,user.fullName,reason);
+    else await verifyHypothesis(incidentId,id,user.fullName);
+    setReport(null); await load();
   };
-
-  const handleRejectHypothesis = async (hypId: string, reason: string) => {
-    await rejectHypothesis(incidentId, hypId, authorName, reason);
-    await loadAll();
-    setPostmortem(null);
+  const addNote = async (event: React.FormEvent) => {
+    event.preventDefault(); if(!note.trim() || busy || !canReview) return;
+    setBusy(true); setActionError(null);
+    try { await addIncidentNote(incidentId,user.fullName,note.trim()); setNote(''); await load(); }
+    catch { setActionError('Your note could not be saved. Check your access and try again.'); }
+    finally { setBusy(false); }
   };
-
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNote.trim()) return;
-
-    try {
-      setSubmittingNote(true);
-      await addIncidentNote(incidentId, authorName, newNote.trim());
-      setNewNote('');
-      await loadAll();
-    } finally {
-      setSubmittingNote(false);
-    }
+  const changeStatus = async (status: IncidentStatus) => {
+    if(!canReview || busy) return; setBusy(true); setActionError(null);
+    try { await updateIncidentStatus(incidentId,status); setReport(null); await load(); }
+    catch { setActionError('The status change could not be confirmed. Refresh before trying again.'); }
+    finally { setBusy(false); }
   };
-
-  const handleStatusChange = async (newStatus: IncidentStatus) => {
-    try {
-      const updated = await updateIncidentStatus(incidentId, newStatus);
-      setIncident(updated);
-      await loadAll();
-      setPostmortem(null);
-    } catch (err: any) {
-      alert('Failed to update status: ' + err.message);
-    }
-  };
-
-  if (loading && !incident) {
-    return (
-      <div className="text-center py-24 text-slate-400 text-sm flex items-center justify-center gap-2">
-        <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
-        Loading incident investigation room...
-      </div>
-    );
-  }
-
-  if (error || !incident) {
-    return (
-      <div className="space-y-4">
-        <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white">
-          <ArrowLeft className="w-4 h-4" /> Back to Command Center
-        </Link>
-        <div className="p-6 rounded-xl bg-rose-950/20 border border-rose-800 text-rose-300 text-sm">
-          {error || 'Incident not found'}
-        </div>
-      </div>
-    );
-  }
-
-  const startDate = new Date(incident.startTime);
-
-  return (
-    <div className="space-y-6">
-      {/* Top Bar with Back Link and Live Refresh */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Command Center
-        </Link>
-
-        <button
-          onClick={loadAll}
-          className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-2.5 py-1 rounded"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-indigo-400" /> Refresh State
-        </button>
-      </div>
-
-      {/* Incident Header Card */}
-      <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4 shadow-xl">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge status={incident.status} />
-              <SeverityBadge severity={incident.severityLevel} />
-              <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700">
-                {incident.serviceName}
-              </span>
-            </div>
-
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              {incident.title}
-            </h1>
-          </div>
-
-          {/* Incident Status Transitions */}
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="text-xs text-slate-400 font-medium">Status Transition:</span>
-            <select
-              value={incident.status}
-              onChange={(e) => handleStatusChange(e.target.value as IncidentStatus)}
-              className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-200 focus:outline-none focus:border-indigo-500"
-            >
-              <option value="INVESTIGATING">INVESTIGATING</option>
-              <option value="OPEN">OPEN</option>
-              <option value="RESOLVED">RESOLVED</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6 pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex-wrap">
-          <span className="flex items-center gap-1.5 font-mono">
-            <Clock className="w-3.5 h-3.5 text-slate-500" />
-            Started: {startDate.toUTCString()}
-          </span>
-
-          {incident.resolutionTime ? (
-            <span className="text-emerald-400 font-medium">
-              Resolved: {new Date(incident.resolutionTime).toUTCString()}
-            </span>
-          ) : (
-            <span className="text-amber-400 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              Incident In Progress
-            </span>
-          )}
-
-          <span className="text-slate-500 font-mono">ID: {incident.id}</span>
-        </div>
-      </div>
-
-      {/* Workspace Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 overflow-x-auto pb-1">
-        <button
-          onClick={() => setActiveTab('TIMELINE')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-all border-b-2 ${
-            activeTab === 'TIMELINE'
-              ? 'text-indigo-400 border-indigo-500 bg-slate-900/60'
-              : 'text-slate-400 border-transparent hover:text-slate-200'
-          }`}
-        >
-          <ListOrdered className="w-4 h-4" />
-          Correlated Timeline ({timeline.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('HYPOTHESES')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-all border-b-2 ${
-            activeTab === 'HYPOTHESES'
-              ? 'text-indigo-400 border-indigo-500 bg-slate-900/60'
-              : 'text-slate-400 border-transparent hover:text-slate-200'
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-amber-400" />
-          AI Root Causes ({incident.hypotheses.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('ALERTS')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-all border-b-2 ${
-            activeTab === 'ALERTS'
-              ? 'text-indigo-400 border-indigo-500 bg-slate-900/60'
-              : 'text-slate-400 border-transparent hover:text-slate-200'
-          }`}
-        >
-          <Bell className="w-4 h-4 text-rose-400" />
-          Alerts ({incident.alerts.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('NOTES')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-all border-b-2 ${
-            activeTab === 'NOTES'
-              ? 'text-indigo-400 border-indigo-500 bg-slate-900/60'
-              : 'text-slate-400 border-transparent hover:text-slate-200'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4 text-emerald-400" />
-          SRE Collaboration & Audit ({incident.notes.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('POSTMORTEM')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs font-semibold transition-all border-b-2 ${
-            activeTab === 'POSTMORTEM'
-              ? 'text-indigo-400 border-indigo-500 bg-slate-900/60'
-              : 'text-slate-400 border-transparent hover:text-slate-200'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-sky-400" />
-          Automated Postmortem
-        </button>
-      </div>
-
-      {/* Tab Panels */}
-      <div>
-        {/* Tab 1: Timeline */}
-        {activeTab === 'TIMELINE' && (
-          <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800">
-            <TimelineView events={timeline} />
-          </div>
-        )}
-
-        {/* Tab 2: AI Hypotheses */}
-        {activeTab === 'HYPOTHESES' && (
-          <div className="space-y-4">
-            {incident.hypotheses.length === 0 ? (
-              <div className="p-12 text-center rounded-2xl border border-dashed border-slate-800 space-y-2">
-                <Sparkles className="w-8 h-8 text-amber-400/60 mx-auto" />
-                <h3 className="text-sm font-semibold text-slate-300">No Hypotheses Generated Yet</h3>
-                <p className="text-xs text-slate-500">
-                  AI Orchestrator is analyzing the correlated timeline bundle.
-                </p>
-              </div>
-            ) : (
-              incident.hypotheses.map((h) => (
-                <HypothesisCard
-                  key={h.id}
-                  hypothesis={h}
-                  onVerify={handleVerifyHypothesis}
-                  onReject={handleRejectHypothesis}
-                />
-              ))
-            )}
-          </div>
-        )}
-
-        {/* Tab 3: Alerts */}
-        {activeTab === 'ALERTS' && (
-          <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800 space-y-4">
-            <h3 className="text-sm font-semibold text-white">Ingested Alerts ({incident.alerts.length})</h3>
-            <div className="space-y-3">
-              {incident.alerts.map((a) => (
-                <div key={a.id} className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-rose-400" />
-                      <span className="text-sm font-semibold text-slate-200">{a.alertType}</span>
-                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-                        {a.source}
-                      </span>
-                    </div>
-                    <span className="text-xs font-mono text-slate-400">
-                      {new Date(a.triggeredAt).toUTCString()}
-                    </span>
-                  </div>
-                  <pre className="text-[11px] font-mono bg-slate-900 p-2.5 rounded border border-slate-800 text-slate-300 overflow-x-auto">
-                    {a.rawPayload}
-                  </pre>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tab 4: Collaboration Notes */}
-        {activeTab === 'NOTES' && (
-          <div className="p-6 rounded-2xl bg-slate-900/40 border border-slate-800 space-y-6">
-            <form onSubmit={handleAddNote} className="space-y-3 p-4 rounded-xl bg-slate-950 border border-slate-800">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                Add Engineer Investigation Note
-              </h4>
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  placeholder="Your Name / Handle"
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  className="w-48 bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Record findings, mitigation steps, or updates..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  className="flex-1 bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-                />
-                <button
-                  type="submit"
-                  disabled={submittingNote || !newNote.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-50 transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  Post
-                </button>
-              </div>
-            </form>
-
-            <div className="space-y-3">
-              <h4 className="text-xs font-mono uppercase tracking-wider text-slate-400">
-                Audit & Collaboration Log ({incident.notes.length})
-              </h4>
-              {incident.notes.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-xs">
-                  No notes recorded yet.
-                </div>
-              ) : (
-                incident.notes.map((n) => (
-                  <div key={n.id} className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-indigo-400">{n.author}</span>
-                      <span className="text-[11px] font-mono text-slate-500">
-                        {new Date(n.createdAt).toLocaleTimeString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-300 leading-relaxed">{n.note}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Tab 5: Automated Postmortem */}
-        {activeTab === 'POSTMORTEM' && (
-          <div>
-            {!postmortem ? (
-              <div className="p-12 text-center rounded-2xl border border-slate-800 text-slate-400 text-xs flex items-center justify-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-                Synthesizing postmortem from verified hypotheses and timeline...
-              </div>
-            ) : (
-              <PostmortemViewer postmortem={postmortem} />
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  if(loading && !incident) return <div className="ux-card ux-empty" role="status">Loading incident…</div>;
+  if(error || !incident) return <div className="ux-page"><Link href="/incidents" className="ux-link"><ArrowLeft size={14} />Back to incidents</Link><div className="ux-card ux-empty" role="alert"><h1>We couldn’t open this incident.</h1><p>It may be unavailable in this workspace, or the connection may have failed.</p><button className="ux-button secondary" onClick={() => void load()}>Try again</button></div></div>;
+  const tabs = [
+    { key:'TIMELINE',label:'Timeline',count:timeline.length,icon:ListOrdered },
+    { key:'HYPOTHESES',label:'Hypotheses',count:incident.hypotheses.length,icon:Sparkles },
+    { key:'ALERTS',label:'Alerts',count:incident.alerts.length,icon:Bell },
+    { key:'NOTES',label:'Notes',count:incident.notes.length,icon:MessageSquare },
+    { key:'POSTMORTEM',label:'Postmortem',count:null,icon:FileText },
+  ];
+  return <div className="ux-page legacy-panels">
+    <Link href="/incidents" className="ux-link"><ArrowLeft size={14} aria-hidden="true" />Back to incidents</Link>
+    <PageHeader eyebrow="INCIDENT INVESTIGATION" title={incident.title} description="Follow the timeline, review the evidence, and record your findings." actions={<button className="ux-button secondary" disabled={loading} onClick={() => void load()}><RefreshCw size={15} aria-hidden="true" />Refresh</button>} />
+    <section className="ux-card ux-investigation-summary"><div><StatusBadge status={incident.status} /><SeverityBadge severity={incident.severityLevel} /><span className="ux-service-tag">{incident.serviceName}</span></div><label>Incident status<select value={incident.status} disabled={!canReview || busy} onChange={event => void changeStatus(event.target.value as IncidentStatus)}><option value="OPEN">Open</option><option value="INVESTIGATING">Investigating</option><option value="RESOLVED">Resolved</option></select></label><p>Started {new Date(incident.startTime).toLocaleString()}{incident.resolutionTime && ' · Resolved '+new Date(incident.resolutionTime).toLocaleString()}</p>{incident.summary && <p className="ux-incident-summary-text">{incident.summary}</p>}</section>
+    {!canReview && <div className="ux-notice">You have viewer access. You can explore the evidence; an SRE or administrator can change status, review hypotheses, and add notes.</div>}
+    {actionError && <div className="ux-notice warning" role="alert">{actionError}</div>}
+    <div className="ux-investigation-tabs" role="tablist" aria-label="Investigation sections" onKeyDown={event => {
+      if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const index = tabs.findIndex(item => item.key === tab);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length-1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      setTab(tabs[next].key as Tab);
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+    }}>{tabs.map(item => <button key={item.key} role="tab" id={'tab-'+item.key} aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} aria-controls={'panel-'+item.key} onClick={() => setTab(item.key as Tab)}><item.icon size={16} aria-hidden="true" />{item.label}{item.count !== null && <span>{item.count}</span>}</button>)}</div>
+    <section role="tabpanel" id={'panel-'+tab} aria-labelledby={'tab-'+tab} className="ux-investigation-panel">
+      {tab === 'TIMELINE' && <div className="ux-card"><div className="ux-section-heading"><div><h2>What changed, and when?</h2><p>Expand an event to inspect its supporting details.</p></div></div><TimelineView events={timeline} /></div>}
+      {tab === 'HYPOTHESES' && <div className="space-y-4"><p className="ux-guide-note">Hypotheses are suggestions, not confirmed root causes. Review their cited evidence before verifying or rejecting them.</p>{incident.hypotheses.length ? incident.hypotheses.map(hypothesis => <HypothesisCard key={hypothesis.id} hypothesis={hypothesis} canReview={canReview} onVerify={id => review(id)} onReject={(id,reason) => review(id,reason)} />) : <div className="ux-card ux-empty"><Sparkles size={26} /><h2>No hypotheses yet</h2><p>Investigation may still be processing, or there may be insufficient evidence. Refresh to check again.</p></div>}</div>}
+      {tab === 'ALERTS' && <div className="ux-card"><div className="ux-section-heading"><div><h2>Alerts behind this incident</h2><p>Source signals that triggered or joined this investigation.</p></div></div>{incident.alerts.length ? <ul className="ux-alert-list">{incident.alerts.map(alert => <li key={alert.id}><div><strong>{alert.alertType}</strong><span>{alert.source} · {new Date(alert.triggeredAt).toLocaleString()}</span></div><details><summary>View alert payload</summary><pre>{alert.rawPayload}</pre></details></li>)}</ul> : <p className="ux-guide-note">No alerts are linked to this incident.</p>}</div>}
+      {tab === 'NOTES' && <div className="ux-card"><div className="ux-section-heading"><div><h2>Findings and activity</h2><p>Keep investigation notes and recorded actions together.</p></div></div>{canReview && <form onSubmit={addNote} className="ux-note-form"><label htmlFor="investigation-note">Add a finding</label><textarea id="investigation-note" value={note} onChange={event => setNote(event.target.value)} required disabled={busy} placeholder="What did you discover, change, or rule out?" /><div><span>Posting as {user.fullName}</span><button className="ux-button" disabled={busy || !note.trim()}><Send size={14} aria-hidden="true" />{busy ? 'Saving…' : 'Add note'}</button></div></form>}{incident.notes.length ? <ul className="ux-notes-list">{incident.notes.map(item => <li key={item.id}><div><strong>{item.author}</strong><time>{new Date(item.createdAt).toLocaleString()}</time></div><p>{item.note}</p></li>)}</ul> : <p className="ux-guide-note">No notes recorded yet.</p>}</div>}
+      {tab === 'POSTMORTEM' && (reportLoading ? <div className="ux-card ux-empty" role="status">Loading the postmortem…</div> : reportError ? <div className="ux-card ux-empty" role="alert"><h2>Postmortem unavailable</h2><p>We couldn’t load the report. Try again.</p><button className="ux-button secondary" onClick={() => void loadReport()}>Retry</button></div> : report ? <PostmortemViewer postmortem={report} /> : null)}
+    </section>
+  </div>;
 }

@@ -16,7 +16,7 @@ New secrets use `rt_ing_` plus 32 cryptographically random bytes encoded as unpa
 
 Only the successful creation response includes the secret. Metadata responses never include the secret or hash, and management responses use Cache-Control: no-store. The creation DTO redacts its string representation, and the service does not log credentials. Prefixes intentionally disclose only a small identifying portion. SHA-256/encoding for migration uses PostgreSQL 16's [built-in binary functions](https://www.postgresql.org/docs/16/functions-binarystring.html), without installing an extension.
 
-The settings panel shows the new key in temporary component state, offers explicit copy/save acknowledgement, and does not persist it. It prevents another creation from overwriting an unacknowledged secret. Revocation requires a confirmation in the UI. Existing browser auth-profile ingestion-key fields are removed on read/save. JWT session storage is otherwise unchanged and remains a separate hardening task.
+The Integrations panel shows the new key in temporary component state, offers explicit copy/save acknowledgement, and does not persist it. It prevents another creation from overwriting an unacknowledged secret. Revocation requires a confirmation in the UI. Existing browser auth-profile ingestion-key fields are removed on read/save. JWT session storage is otherwise unchanged and remains a separate hardening task.
 
 ## API contract
 
@@ -47,7 +47,7 @@ Named keys now authenticate log and alert webhooks through `X-RootTrace-Key`. Re
 | POST `/api/v1/webhooks/logs/batch` | Array of 1-500 valid log objects; validated in full before publishing. |
 | POST `/api/v1/webhooks/alerts/{source}` | `{ "serviceName": "checkout", "alertType": "HighLatency", "severity": "SEV1", "triggeredAt": "2026-11-17T00:00:00Z", "details": {} }` |
 
-Service and alert-type names are limited to 128 characters; source is at most 64. Optional log stackTrace/metadata are supported. New credentials are shown once in Settings; use separate keys for integrations and keep them out of client/browser application bundles. Unknown or revoked keys return 401. Revocation stops subsequent authenticated requests; it does not cancel in-flight requests or already accepted broker events.
+Service and alert-type names are limited to 128 characters; source is at most 64. Optional log stackTrace/metadata are supported. New credentials are shown once in Integrations; use separate keys for integrations and keep them out of client/browser application bundles. Unknown or revoked keys return 401. Revocation stops subsequent authenticated requests; it does not cancel in-flight requests or already accepted broker events.
 
 The durable outbox stores version 2 server-owned envelopes `{eventVersion: 2, eventType: "LOG"|"ALERT", workspaceId, eventId, payload}` and partition by `workspaceId:serviceName`. Consumers validate version, type, workspace existence, and payload before persistence. Invalid envelopes go to the relevant DLQ without becoming legacy or tenant records. Historical raw events always go to legacy quarantine, even if they contain workspaceId. The shared configured global credential also writes only to legacy; it grants no tenant/application access. Deployment ingestion is still pending.
 

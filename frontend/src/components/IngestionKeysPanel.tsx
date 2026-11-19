@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createIngestionKey, IngestionKey, listIngestionKeys, revokeIngestionKey } from '@/lib/api';
 
-export function IngestionKeysPanel({ isAdmin }: { isAdmin: boolean }) {
+export function IngestionKeysPanel({ isAdmin, onChanged }: { isAdmin: boolean; onChanged?: () => void }) {
   const [keys, setKeys] = useState<IngestionKey[]>([]);
   const [name, setName] = useState('');
   const [secret, setSecret] = useState<string | null>(null);
@@ -30,6 +30,7 @@ export function IngestionKeysPanel({ isAdmin }: { isAdmin: boolean }) {
       setKeys(current => [result.key, ...current]);
       setName('');
       setCopied(false);
+      onChanged?.();
     } catch { setError('Unable to create a key. Check your name and administrator access.'); }
     finally { setBusy(false); }
   };
@@ -41,6 +42,7 @@ export function IngestionKeysPanel({ isAdmin }: { isAdmin: boolean }) {
       await revokeIngestionKey(id);
       setKeys(await listIngestionKeys());
       setConfirmRevoke(null);
+      onChanged?.();
     } catch { setError('Unable to revoke this key. Refresh and try again.'); }
     finally { setBusy(false); }
   };
