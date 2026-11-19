@@ -10,9 +10,9 @@ import com.roottrace.workspace.service.TaskRecoveryService;
 import com.roottrace.workspace.service.TaskRecoveryService.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -37,7 +37,7 @@ class TaskRecoveryIntegrationTest extends IntegrationTestSupport {
     @Autowired private JwtTokenProvider tokens;
     @Autowired private DurableTaskStore store;
     @Autowired private TaskRecoveryService service;
-    @SpyBean private JdbcTemplate jdbc;
+    @MockitoSpyBean private JdbcTemplate jdbc;
 
     @Test
     void redrivePreservesIdentityAndAuditsAuthoritativeActorAndFailureSnapshot() throws Exception {

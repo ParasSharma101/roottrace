@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
 
@@ -19,15 +19,31 @@
 
     <properties>
         <java.version>21</java.version>
-        <spring-ai.version>1.0.0-M3</spring-ai.version>
+        <roottrace.build.directory>${project.basedir}/target</roottrace.build.directory>
         <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
+
+    <!-- Security fixes newer than the Boot/Kafka dependency baseline. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>1.11.4</version>
+            </dependency>
+            <dependency>
+                <groupId>org.xerial.snappy</groupId>
+                <artifactId>snappy-java</artifactId>
+                <version>1.1.10.9</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Web & Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -45,8 +61,8 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
@@ -59,8 +75,8 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
 
         <!-- Observability -->
@@ -97,6 +113,15 @@
         </dependency>
 
         <!-- Utilities -->
+        <!-- Preserve persisted payload/hash serialization during the Boot 4 transition. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-jackson2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
@@ -109,7 +134,7 @@
             <version>2.20.0</version>
             <scope>test</scope>
         </dependency>
-        <!-- Testcontainers' archive support needs a newer Lang than Boot 3.3 manages. -->
+        <!-- Retained explicit test-only archive compatibility dependency. -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
@@ -128,7 +153,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -137,13 +162,14 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <directory>${roottrace.build.directory}</directory>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

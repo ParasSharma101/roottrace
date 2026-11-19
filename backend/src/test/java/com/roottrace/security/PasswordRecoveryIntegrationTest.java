@@ -6,9 +6,9 @@ import com.roottrace.ingestion.service.PayloadDigest;
 import com.roottrace.support.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.*;
@@ -52,7 +52,7 @@ class PasswordRecoveryIntegrationTest extends IntegrationTestSupport {
     @Autowired JwtTokenProvider jwt;
     @Autowired javax.sql.DataSource dataSource;
     @org.springframework.boot.test.web.server.LocalServerPort int port;
-    @SpyBean MailOutbox outbox;
+    @MockitoSpyBean MailOutbox outbox;
 
     @Test
     void resetProvesEmailChangesPasswordAndRevokesAllSessionsAtomically() throws Exception {
@@ -117,7 +117,7 @@ class PasswordRecoveryIntegrationTest extends IntegrationTestSupport {
     void concurrentResetConsumesProofExactlyOnce() throws Exception {
         Account account=signup(); request(account.email()); String token=resetToken(account);
         try(var pool=Executors.newFixedThreadPool(2)) {
-            var a=pool.submit(() -> reset(token,NEW)); var b=pool.submit(() -> reset(token,"other-replacement-789"));
+            var a=pool.submit(() -> reset(token,NEW)); var b=pool.submit(() -> reset(token,"other-replacement-789")); // gitleaks:allow -- public concurrency-test password
             assertThat(List.of(a.get(15,TimeUnit.SECONDS),b.get(15,TimeUnit.SECONDS))).containsExactlyInAnyOrder(200,400);
         }
         assertThat(jdbc.queryForObject("select auth_epoch from users where id=?",Long.class,account.id())).isEqualTo(1);

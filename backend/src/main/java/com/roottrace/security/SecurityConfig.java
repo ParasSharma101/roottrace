@@ -78,7 +78,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/invitations/**", "/api/v1/auth/invitations", "/api/v1/auth/email/status", "/api/v1/auth/email/verification", "/api/v1/auth/email/verify").authenticated()
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/workspaces", "/api/v1/auth/select-workspace", "/api/v1/auth/logout", "/api/v1/auth/logout-all").authenticated()
                         .requestMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness").permitAll()
-                        .requestMatchers(org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest.toAnyEndpoint()).denyAll()
+                        .requestMatchers(org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest.toAnyEndpoint()).denyAll()
                         .requestMatchers("/actuator", "/actuator/**").denyAll()
                         .requestMatchers("/", "/api/v1/auth/**", "/api/v1/simulation/**").permitAll()
                         .requestMatchers("/api/v1/workspace/**").hasAnyRole("VIEWER", "SRE", "ADMIN")

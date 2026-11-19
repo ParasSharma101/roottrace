@@ -30,6 +30,32 @@ class ConsumerIntegrationTest extends com.roottrace.support.IntegrationTestSuppo
     @Autowired private IncidentRepository incidentRepository;
     @Autowired private com.roottrace.domain.repository.WorkspaceRepository workspaceRepository;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private org.springframework.boot.kafka.autoconfigure.KafkaProperties kafkaProperties;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"lz4", "snappy"})
+    void patchedCompressionLibrariesDeliverLogsThroughTheBroker(String compression) throws Exception {
+        String service = "codec-" + compression + "-" + UUID.randomUUID();
+        Instant now = Instant.now();
+        var request = new RawLogRequest(service, now, "INFO", "patched codec round trip", null, Map.of());
+        var properties = new java.util.HashMap<String, Object>(kafkaProperties.buildProducerProperties());
+        properties.put(org.apache.kafka.clients.producer.ProducerConfig.COMPRESSION_TYPE_CONFIG, compression);
+        try (var producer = new org.apache.kafka.clients.producer.KafkaProducer<String, String>(properties)) {
+            producer.send(new org.apache.kafka.clients.producer.ProducerRecord<>(KafkaTopicConfig.RAW_LOGS_TOPIC,
+                    service, objectMapper.writeValueAsString(request))).get(10, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        long deadline = System.currentTimeMillis() + 15000;
+        List<LogEvent> persisted = List.of();
+        while (System.currentTimeMillis() < deadline) {
+            persisted = logEventRepository.findByWorkspaceIdAndServiceNameAndTimestampBetweenOrderByTimestampDesc(
+                    com.roottrace.domain.model.Workspace.LEGACY_WORKSPACE_ID, service,
+                    now.minusSeconds(60), now.plusSeconds(60));
+            if (!persisted.isEmpty()) break;
+            Thread.sleep(200);
+        }
+        assertThat(persisted).singleElement().satisfies(log ->
+                assertThat(log.getMessage()).isEqualTo("patched codec round trip"));
+    }
 
     @Test
     @DisplayName("Should consume batch logs from Kafka and persist into PostgreSQL via LogEventConsumer")

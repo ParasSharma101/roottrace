@@ -14,6 +14,20 @@ From `backend`, run:
 
 On Linux/macOS use `./mvnw -B test`.
 
+The supported framework baseline is Spring Boot 4.1.2 on Java 21. Test annotations use Boot 4's modular MVC test support and Spring's MockitoBean/MockitoSpyBean replacements. See [dependency baseline](../DEPENDENCY_BASELINE.md) for frontend/runtime requirements and CI checks.
+
+For memory-constrained hosts, the CI-equivalent package verification is:
+
+```powershell
+.\mvnw.cmd -B '-DargLine=-Xmx1024m -Dspring.test.context.cache.maxSize=4' verify
+```
+
+If an IDE writes compiled classes into `target`, use an isolated Maven output directory with `-Droottrace.build.directory=<absolute-build-directory>`. This prevents stale or IDE-generated classes from affecting validation. The default remains `target`.
+
+`PayloadDigestCompatibilityTest` exercises the Boot-managed internal Jackson 2 mapper against the canonical JSON shape used for persisted ingestion idempotency. Keep this compatibility check when changing JSON configuration or removing the temporary Jackson bridge.
+
+The dependency-hardening suite has 166 tests. `ConsumerIntegrationTest` includes LZ4 and Snappy producer-to-broker-to-database round trips to verify patched compression libraries against the self-hosted Kafka baseline. Production SBOM scanning excludes test-only dependencies and fails on high/critical findings; see the repository verification workflow.
+
 You do not need to start the development Compose stack or copy production credentials.
 
 ## Isolation and lifecycle
