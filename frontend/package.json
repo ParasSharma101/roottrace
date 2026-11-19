@@ -6,25 +6,29 @@
     "test:auth-storage": "node --test tests/auth-storage.test.cjs",
     "test:membership": "node --test tests/membership-requests.test.cjs",
     "test:workflow": "node --test tests/workflow-navigation.test.cjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.cjs",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start": "next start"
+  },
+  "engines": {
+    "node": ">=24.22.3 <25"
   },
   "dependencies": {
     "clsx": "^2.1.1",
-    "lucide-react": "^0.460.0",
-    "next": "14.2.18",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "lucide-react": "1.76.0",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
-    "@types/node": "^22.8.7",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
+    "postcss": "^8.5.33",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3"
   }

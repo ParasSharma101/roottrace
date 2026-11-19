@@ -3,8 +3,8 @@
 > **Event-driven observability system correlating alerts, distributed logs, deployments, and GitHub PR diffs into grounded root-cause hypotheses with Gemini AI, human-in-the-loop verification, and automated postmortem export.**
 
 [![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/)
-[![Spring Boot 3.3.5](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![Next.js 14](https://img.shields.io/badge/Next.js-14.2-black.svg)](https://nextjs.org/)
+[![Spring Boot 4.1.2](https://img.shields.io/badge/Spring%20Boot-4.1.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16.4.6-black.svg)](https://nextjs.org/)
 [![Kafka 3.7](https://img.shields.io/badge/Apache%20Kafka-3.7%20KRaft-red.svg)](https://kafka.apache.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Redis 7](https://img.shields.io/badge/Redis-7-red.svg)](https://redis.io/)
@@ -61,7 +61,7 @@
                                  |
                                  v
 +-------------------------------------------------------------------+
-|                  Next.js 14 SRE Command Center                    |
+|                  Next.js 16 SRE Command Center                    |
 |  - Real-time Incident Dashboard with SEV1/2/3 Filtering           |
 |  - Interactive Chronological Timeline Visualizer                  |
 |  - Grounded AI Hypotheses with One-Click Verify / Reject          |
@@ -88,12 +88,12 @@ RootTrace was architected specifically to eliminate the critical failure modes t
 
 ## Tech Stack & Architecture Decisions
 
-- **Backend:** Java 21 LTS, Spring Boot 3.3.5, Spring Data JPA, Hibernate 6, Virtual Threads (`spring.threads.virtual.enabled: true`).
+- **Backend:** Java 21 LTS, Spring Boot 4.1.2, Spring Data JPA, Hibernate 7, Virtual Threads (`spring.threads.virtual.enabled: true`).
 - **Database & Storage:** PostgreSQL 16 (relational integrity + JSONB for telemetry) with Flyway migrations.
 - **Event Bus:** Apache Kafka 3.7 (native KRaft mode, no ZooKeeper) with 3 partitions and dedicated Dead Letter Queues (DLQ).
 - **Caching & Ephemeral State:** Redis 7 (incident context bundles + GitHub PR metadata cache).
 - **AI Orchestration:** Google Gemini API (`gemini-1.5-pro` / `gemini-1.5-flash`) with fallback deterministic SRE heuristic engine.
-- **Frontend:** Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide React.
+- **Frontend:** Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Lucide React.
 - **Packaging:** Multi-stage Dockerfiles (`eclipse-temurin:21-jre-alpine` + `node:20-alpine` standalone).
 
 ---
@@ -103,7 +103,7 @@ RootTrace was architected specifically to eliminate the critical failure modes t
 ### Prerequisites
 - Docker & Docker Compose
 - Java 21 JDK (`java -version`)
-- Node.js 20+ & npm (`node -v`)
+- Node.js 24.22.3+ (24.x LTS) & npm (`node -v`)
 
 ### 1. Start Local Infrastructure (Postgres, Redis, Kafka)
 ```bash
@@ -144,7 +144,7 @@ Workspace administrators can manage multiple named credentials in Settings, with
 ### 4. Run Frontend Dashboard
 ```bash
 cd frontend
-npm install
+npm ci --ignore-scripts
 npm run dev
 ```
 Frontend will be available at `http://localhost:3000`.
@@ -244,3 +244,5 @@ Disabling demos does not remove accounts already seeded into an existing databas
    - Navigate to the **Postmortem** tab and click **"Download .md"** to export the ready-to-share postmortem.
 
 Workspace navigation and connection evidence are documented in [Workspace UX](frontend/WORKSPACE_UX.md) and [Setup API](backend/WORKSPACE_SETUP.md). Personal email and security controls are in the account menu; ingestion keys are in Integrations and members/invitations are in Team.
+
+Supported dependency/runtime versions, upgrade boundaries and CI checks are documented in [Dependency baseline](DEPENDENCY_BASELINE.md).
