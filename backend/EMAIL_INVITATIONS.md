@@ -48,6 +48,8 @@ For a backend launched on the host with profile `dev`, set mail enabled, a devel
 
 ### Operator checks and recovery
 
+The local development verification panel links to the Mailpit inbox on loopback hosts and explains that captured mail does not reach Gmail. Request acknowledgement is separate from delivery; pending/running status refreshes briefly, with manual refresh retained. The development-only hint is absent from production builds.
+
 Verification status and administrator invitation lists expose delivery state. SENT means submitted to the SMTP server, not delivered to an inbox. The generic actuator health does not contact SMTP: durable API traffic should not become unhealthy solely because email is down. Monitor pending age/FAILED counts of `outbound_emails` through trusted platform operations; it is separate from the ingestion/task recovery API. Never select/decrypt message payloads in diagnostics. After fixing delivery, users can request a new verification link after cooldown; administrators can revoke and create a new invitation. There is no mail redrive API in this increment. A worker may already be sending when revocation occurs; any late notification grants no access.
 
 ## API and verification
