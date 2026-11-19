@@ -16,7 +16,7 @@ RUN mvn clean package -DskipTests -B
 # -------------------------------------------------------------
 # Stage 2: Hardened Runtime with Eclipse Temurin JRE 21
 # -------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS runner
+FROM eclipse-temurin:25-jre-alpine AS runner
 
 WORKDIR /app
 
