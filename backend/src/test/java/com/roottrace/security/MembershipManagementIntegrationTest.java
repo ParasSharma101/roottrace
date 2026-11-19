@@ -7,9 +7,9 @@ import com.roottrace.support.IntegrationTestSupport;
 import com.roottrace.workspace.service.MembershipAudit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import java.net.URI;
@@ -32,7 +32,7 @@ class MembershipManagementIntegrationTest extends IntegrationTestSupport {
     @Autowired WorkspaceRepository workspaces;
     @Autowired WorkspaceMemberRepository members;
     @Autowired JwtTokenProvider jwt;
-    @SpyBean MembershipAudit audit;
+    @MockitoSpyBean MembershipAudit audit;
     @Autowired javax.sql.DataSource dataSource;
     @org.springframework.boot.test.web.server.LocalServerPort int port;
 

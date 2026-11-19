@@ -6,9 +6,9 @@ import com.roottrace.ingestion.service.PayloadDigest;
 import com.roottrace.support.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.MailSendException;
@@ -45,8 +45,8 @@ class EmailInvitationIntegrationTest extends IntegrationTestSupport {
     @Autowired private ObjectMapper mapper;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private MailWorker worker;
-    @SpyBean private JavaMailSender sender;
-    @SpyBean private MailOutbox outbox;
+    @MockitoSpyBean private JavaMailSender sender;
+    @MockitoSpyBean private MailOutbox outbox;
 
     @Test
     void verificationUsesSmtpHashAndEncryptedOutboxWithoutGrantingSessions() throws Exception {

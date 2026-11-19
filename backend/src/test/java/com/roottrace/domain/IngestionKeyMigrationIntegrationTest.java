@@ -29,7 +29,7 @@ class IngestionKeyMigrationIntegrationTest extends IntegrationTestSupport {
         UUID shortKeyWorkspace = UUID.randomUUID();
         jdbc.update("insert into " + schema + ".workspaces(id,name,slug,api_key) values (?, 'Short key', ?, 'too-short')",
                 shortKeyWorkspace, shortKeyWorkspace.toString());
-        jdbc.update("update " + schema + ".workspaces set api_key='rt_live_legacy_fixture_12345678901234567890' where is_legacy");
+        jdbc.update("update " + schema + ".workspaces set api_key='rt_live_legacy_fixture_12345678901234567890' where is_legacy"); // gitleaks:allow -- public legacy migration fixture
         Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("4").load().migrate();
         String expected = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8)));
         assertThat(jdbc.queryForObject("select key_hash from " + schema + ".workspace_ingestion_keys where workspace_id=?",

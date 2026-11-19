@@ -62,8 +62,8 @@ class SecureKafkaIntegrationTest {
         Map<String,Object> values=new HashMap<>(); source.forEach((key,value) -> values.put(key.toString(),value));
         var settings=new org.springframework.boot.context.properties.bind.Binder(
                 new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(values))
-                .bind("spring.kafka",org.springframework.boot.context.properties.bind.Bindable.of(org.springframework.boot.autoconfigure.kafka.KafkaProperties.class)).get();
-        var producer=settings.buildProducerProperties(null);
+                .bind("spring.kafka",org.springframework.boot.context.properties.bind.Bindable.of(org.springframework.boot.kafka.autoconfigure.KafkaProperties.class)).get();
+        var producer=settings.buildProducerProperties();
         assertThat(producer.get("security.protocol")).isEqualTo("SSL");
         assertThat(producer.get("ssl.keystore.type")).isEqualTo("PKCS12");
         assertThat(producer.get("ssl.keystore.location").toString()).endsWith("kafka-backend.p12");

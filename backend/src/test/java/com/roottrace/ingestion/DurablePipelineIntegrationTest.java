@@ -14,10 +14,10 @@ import com.roottrace.support.IntegrationTestSupport;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,9 +50,9 @@ class DurablePipelineIntegrationTest extends IntegrationTestSupport {
     @Autowired private AlertEventConsumer alertConsumer;
     @Autowired private LogEventConsumer logConsumer;
     @Autowired private IngestionEventCodec codec;
-    @SpyBean private DurableTaskStore tasks;
-    @SpyBean private EventPublisher publisher;
-    @MockBean private AiInvestigationClient provider;
+    @MockitoSpyBean private DurableTaskStore tasks;
+    @MockitoSpyBean private EventPublisher publisher;
+    @MockitoBean private AiInvestigationClient provider;
 
     @BeforeEach
     void defaultProvider() {
